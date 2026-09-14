@@ -32,4 +32,21 @@ export const t = {
     critDamage: 'Crit damage',
     greed: 'Gold',
   },
+
+  chooseZone: 'Choose zone',
+  nextZone: 'Choose the next zone',
+  keepFarming: 'Keep farming',
+  stages: (first: number, last: number) => `Stages ${first}–${last}`,
+  zoneTaglines: {
+    ruins: 'Rich, but bosses flee fast',
+    catacombs: 'Steady ground',
+    ravine: 'Poor, but bosses are weak',
+  },
+  zoneStats: {
+    enemyHp: 'Enemy HP',
+    gold: 'Gold',
+    bossHp: 'Boss HP',
+    bossTimer: 'Boss timer',
+  },
+  bossAtYourDps: (stage: number) => `Boss ${stage} at your DPS:`,
 } as const;

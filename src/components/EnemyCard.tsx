@@ -3,7 +3,7 @@ import Animated, { FadeInRight, useAnimatedStyle } from 'react-native-reanimated
 import type { SharedValue } from 'react-native-reanimated';
 import { Skull } from 'lucide-react-native';
 
-import { CONFIG, dps, enemyMaxHp, isBoss } from '../engine/engine';
+import { bossTimeout, dps, enemyMaxHp, isBoss } from '../engine/engine';
 import { formatNumber } from '../engine/format';
 import { useGame } from '../game/store';
 import { t } from '../strings';
@@ -41,7 +41,7 @@ export function EnemyCard({ shake }: { shake: SharedValue<number> }) {
         <Text style={styles.hpText}>{formatNumber(hp)} / {formatNumber(maxHp)}</Text>
         {boss && (
           <View style={styles.timer}>
-            <HealthBar fraction={bossTimeLeft / CONFIG.bossTimeout} color={colors.boss} height={4} />
+            <HealthBar fraction={bossTimeLeft / bossTimeout(zone)} color={colors.boss} height={4} />
             <Text style={styles.timerText}>{Math.ceil(bossTimeLeft)}s</Text>
           </View>
         )}

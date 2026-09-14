@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 
 import { advance, buy, newGame, tick } from '../engine/engine';
-import type { GameState, UpgradeId } from '../engine/engine';
+import type { GameState, UpgradeId, ZoneId } from '../engine/engine';
 
 interface GameStore {
   game: GameState;
@@ -12,7 +12,8 @@ interface GameStore {
   bossFails: number; // bosses que fugiram — dispara o aviso de volta de fase
   hydrate: (saved: GameState | null) => void;
   step: (ticks: number) => void;
-  advance: () => void;
+  // Saindo de um boss, `zone` é obrigatória (vem da tela de 3 cartas).
+  advance: (zone?: ZoneId) => void;
   buy: (id: UpgradeId, count: number) => void;
 }
 
@@ -35,10 +36,8 @@ export const useGame = create<GameStore>()((set, get) => ({
     set({ game, kills, bossFails });
   },
 
-  advance: () => {
-    const { game } = get();
-    // O marco 5 troca isso pela tela de zona (3 cartas). Até lá a zona se mantém.
-    const next = advance(game, game.zone);
+  advance: zone => {
+    const next = advance(get().game, zone);
     if (next) set({ game: next });
   },
 

@@ -16,8 +16,6 @@ export const CONFIG = {
   goldGrowth: 1.24,
 
   bossEvery: 10,
-  bossHpMult: 2.5,
-  bossTimeout: 45,
 
   // Só o ataque é multiplicativo. Os outros são aditivos de propósito —
   // dois ou mais multiplicadores exponenciais fazem o poder passar a
@@ -48,11 +46,15 @@ export const CONFIG = {
 
   // Fases 1-10 usam startZone; depois vale a zona escolhida após cada boss.
   // Os modificadores valem só dentro da zona e nunca acumulam.
+  // bossHpMult multiplica a vida do inimigo comum da zona; bossTimeout é em segundos.
   startZone: 'catacombs',
   zones: {
-    ruins:     { hpMult: 1.4, goldMult: 2.0 },
-    catacombs: { hpMult: 1.0, goldMult: 1.0 }, // alma extra no boss: ainda não simulada (problema 3)
-    ravine:    { hpMult: 0.5, goldMult: 0.5 },
+    // Cada zona tem um papel (problema 5): Ruins é a mais rápida, mas o boss foge
+    // cedo e ela sozinha não chega ao fim; Ravine é lenta, mas o boss fraco leva
+    // mais fundo. No experimento, com 35s em Ruins ela voltava a dominar.
+    ruins:     { hpMult: 1.4, goldMult: 2.0, bossHpMult: 2.5, bossTimeout: 30 },
+    catacombs: { hpMult: 1.0, goldMult: 1.0, bossHpMult: 2.5, bossTimeout: 45 }, // alma extra no boss: ainda não simulada (problema 3)
+    ravine:    { hpMult: 0.5, goldMult: 0.5, bossHpMult: 1.5, bossTimeout: 45 },
   },
 } as const;
 
@@ -97,12 +99,17 @@ export function isBoss(stage: number): boolean {
 }
 
 export function enemyMaxHp(stage: number, zone: ZoneId): number {
-  const boss = isBoss(stage) ? CONFIG.bossHpMult : 1;
-  return CONFIG.hpBase * Math.pow(CONFIG.hpGrowth, stage - 1) * boss * CONFIG.zones[zone].hpMult;
+  const z = CONFIG.zones[zone];
+  const boss = isBoss(stage) ? z.bossHpMult : 1;
+  return CONFIG.hpBase * Math.pow(CONFIG.hpGrowth, stage - 1) * boss * z.hpMult;
 }
 
 export function enemyGold(stage: number, zone: ZoneId): number {
   return CONFIG.goldBase * Math.pow(CONFIG.goldGrowth, stage - 1) * CONFIG.zones[zone].goldMult;
+}
+
+export function bossTimeout(zone: ZoneId): number {
+  return CONFIG.zones[zone].bossTimeout;
 }
 
 export function upgradeCost(id: UpgradeId, level: number): number {
@@ -166,7 +173,7 @@ export function soulsForStage(stage: number): number {
 }
 
 export function enterStage(state: GameState, stage: number, zone: ZoneId): GameState {
-  return { ...state, stage, zone, enemyHp: enemyMaxHp(stage, zone), bossTimeLeft: CONFIG.bossTimeout };
+  return { ...state, stage, zone, enemyHp: enemyMaxHp(stage, zone), bossTimeLeft: bossTimeout(zone) };
 }
 
 // Avança o combate `dt` segundos. Chamar num setInterval de CONFIG.tickSeconds,

@@ -46,7 +46,7 @@ deliberada, não uma limitação temporária — ver seção 9.
 1. O herói ataca automaticamente o inimigo da fase atual.
 2. Inimigo morre → dropa ouro → **outro inimigo igual aparece na mesma fase**.
 3. O jogador decide: continuar farmando ali ou apertar **Advance** para a próxima fase.
-4. A cada 10 fases há um boss (2,5× de vida, limite de 45s). Ao vencer, o jogador
+4. A cada 10 fases há um boss (vida e limite de tempo dependem da zona). Ao vencer, o jogador
    escolhe a próxima zona entre 3 cartas.
 5. Em algum ponto o avanço trava. O jogador faz **prestígio**: volta à fase 1 com
    almas, que dão bônus permanente de dano.
@@ -70,8 +70,8 @@ rodar `npm run sim` antes.**
 hp(fase)   = 5 * 1.32^(fase-1) * bossMult * zonaHp
 ouro(fase) = 10 * 1.24^(fase-1) * zonaOuro
 
-bossMult  = 2.5 se fase % 10 == 0, senão 1
-bossTimeout = 45s  (não matou, volta uma fase)
+bossMult    = bossHp da zona se fase % 10 == 0, senão 1   (ver Zonas)
+bossTimeout = tempo do boss da zona  (não matou, volta uma fase)
 ```
 
 ### Herói
@@ -121,30 +121,38 @@ Escolhidas a cada 10 fases, após o boss. Valem **apenas dentro da zona** — n�
 acumulam entre zonas. Isso é essencial: modificadores persistentes de ouro
 compõem exponencialmente e destroem a curva.
 
-| Zona | Vida | Ouro | Extra |
-|---|---|---|---|
-| Ruins | ×1.4 | ×2.0 | — |
-| Catacombs | ×1.0 | ×1.0 | alma extra no boss |
-| Ravine | ×0.5 | ×0.5 | — |
+| Zona | Vida | Ouro | Vida do boss | Tempo do boss | Extra |
+|---|---|---|---|---|---|
+| Ruins | ×1.4 | ×2.0 | ×2.5 | 30s | — |
+| Catacombs | ×1.0 | ×1.0 | ×2.5 | 45s | alma extra no boss (não implementada, problema 3) |
+| Ravine | ×0.5 | ×0.5 | ×1.5 | 45s | — |
+
+A vida do boss multiplica a vida do inimigo comum da zona. As fases 1–10 são
+sempre Catacombs. Cada zona tem um papel: Ruins é rápida, mas o boss foge cedo;
+Ravine é lenta, mas o boss fraco leva mais fundo (ver problema 5).
 
 ### O que a simulação produziu
 
-Com ouro 1.24 e um jogador que farma até o kill cair abaixo de 8s (e desiste
-depois de 40 kills na mesma fase), sempre escolhendo Ruins:
+Com ouro 1.24 e um jogador "esperto": farma até o kill cair abaixo de 8s (e
+desiste depois de 40 kills na mesma fase) e, a cada boss, joga o próximo bloco
+em cada zona e fica com a primeira que não trava (ordem Ruins, Catacombs, Ravine).
 
-- Muro na **fase 190**
-- **~4,3 horas** de jogo até o muro, 94% dele farmando
-- **~1.360 kills**, média de 11s por kill
-- Nível de Attack ao fim: **574**
+- Muro na **fase 200**; passa a 180 em **~3,1 horas**
+- **~8,3 horas** até o muro, 96% delas farmando — de 180 a 200 é um grind longo
+- **~1.720 kills**, média de 17s por kill
+- Nível de Attack ao fim: **583**
+- Zonas escolhidas: Ruins 16×, Catacombs 1×, Ravine 2×
 
-| Estratégia de zona | Muro | Tempo |
-|---|---|---|
-| Sempre Ruins | 190 | 4,3h |
-| Alternando Ruins/Ravine | 190 | 5,0h |
-| Sempre Catacombs | 190 | 5,9h |
-| Sempre Ravine | 190 | 6,0h |
+| Estratégia de zona | Muro | Até a 180 | Até o muro |
+|---|---|---|---|
+| Sempre Ruins | 180 | — | 2,6h |
+| Alternando Ruins/Ravine | 190 | 2,6h | 4,7h |
+| Esperto | 200 | 3,1h | 8,3h |
+| Sempre Ravine | 200 | 3,4h | 9,3h |
+| Sempre Catacombs | 190 | 4,0h | 5,9h |
 
-Ruins domina: todas param na mesma fase e Ruins chega antes. Ver problema 5.
+Nenhuma estratégia fixa domina: Ruins é a mais rápida mas para na 180, Ravine é
+a única que chega à 200 sozinha e alternar é o caminho mais rápido até a 180.
 
 ---
 
@@ -293,13 +301,13 @@ Se um dia houver versão PT-BR, é criar um segundo objeto.
 Estes são conhecidos e ainda não resolvidos. Nenhum bloqueia começar a codar.
 
 **1. A curva de prestígio acelera e quebra.** Com os valores atuais, cada run vai
-muito mais longe que a anterior (190 → 390 → 1280) e na run 4 o jogo perde o
+muito mais longe que a anterior (200 → 420 → 1500) e na run 4 o jogo perde o
 controle (fase 2000 em 3 minutos). O oposto também é fácil de causar: baixando o
 bônus, todas as runs empacam na mesma fase. A janela é estreita. Caminho mais
 provável: fazer `hpGrowth` acelerar com a fase (ex. `1.32 + fase * 0.0004`) em vez
 de ser constante. **Simular antes de codar a tela de prestígio.**
 
-**2. Os marcos de arma não estão calibrados.** O jogador chega ao nível 574 de
+**2. Os marcos de arma não estão calibrados.** O jogador chega ao nível 583 de
 Attack numa run. Marcos até 200 seriam todos desbloqueados antes da metade. O
 espaçamento precisa sair da simulação: ~12 a 15 marcos até ~650, com intervalos
 crescentes (1, 10, 25, 50, 90, 140, 200, 270, 350, 440, 540, 650).
@@ -311,9 +319,13 @@ que afeta o meta-progresso e pode interagir mal com o problema 1.
 um jogador que sempre assiste tem o dobro da economia simulada. Simular esse
 jogador antes de ligar o rewarded.
 
-**5. Ruins domina as outras zonas.** Com ouro 1.24, as quatro estratégias param
-na fase 190 e sempre-Ruins chega 1,7h antes de sempre-Ravine. Enquanto isso
-valer, a tela de zona não é uma decisão de verdade. Resolver antes do marco 5.
+**5. Zonas: mitigado, não resolvido.** Ruins dominava todas as estratégias. O
+desenho atual (boss de Ruins foge em 30s, boss de Ravine com ×1.5) dá um papel a
+cada zona — ver seção 4. Ressalvas: (a) a janela é estreita: no experimento, com
+35s em Ruins ela voltava a dominar; (b) Catacombs quase nunca é escolhida — o
+papel dela deve vir da alma extra (problema 3); (c) o fim da run é um grind de
+horas (180 → 200) que o prestígio deveria cortar, então a métrica certa para as
+zonas é **almas por hora**, a recalibrar junto com o problema 1.
 
 ---
 
@@ -354,6 +366,7 @@ Cada marco é entregável e testável sozinho.
 4. **Tela de Upgrades + save local**
    Feito em `src/screens/UpgradesScreen.tsx` e `src/game/persistence.ts`.
 5. **Zonas + tela de seleção**
+   Feito em `src/components/ZoneSelect.tsx`, com o desenho de zonas do problema 5.
 6. **Progresso offline + modal**
 7. **Prestígio** (resolver o problema 1 antes)
 8. **Armas cosméticas + inimigos procedurais**
@@ -372,7 +385,7 @@ tentativas produziram um jogo que travava na fase 10 e outro que acabava em 2
 minutos. `npm run sim` roda o motor real tick a tick e imprime a curva. Se
 mudar um número, rode e cole o resultado na conversa antes de seguir.
 
-**A intuição falha aqui.** Exemplo real: baixar o limiar de farm de 12s para 4s
+**A intuição falha aqui.** Exemplo real, com o desenho de zonas antigo: baixar o limiar de farm de 12s para 4s
 parecia que ia deixar o jogo menos grindy. Não deixou — o tempo total ficou
 praticamente igual (4,5h → 4,0h), e o número de kills quase dobrou.
 
@@ -399,6 +412,8 @@ adjetivo + substantivo funciona sempre.
 - `src/game/useGameLoop.ts` — loop de tick fixo de 100ms
 - `src/screens/CombatScreen.tsx` e `src/components/` — tela de Combat
 - `src/screens/UpgradesScreen.tsx` — upgrades com ×1 e ×10
+- `src/components/ZoneSelect.tsx` — 3 cartas depois de cada boss, com o tempo
+  estimado do próximo boss no dps atual
 - `src/components/TopBar.tsx` e `TabBar.tsx` — moldura comum às telas
 - `src/engine/save.ts` — formato do save e validação (puro, testado)
 - `src/game/persistence.ts` — lê o save ao abrir; grava a cada 10s e ao perder foco

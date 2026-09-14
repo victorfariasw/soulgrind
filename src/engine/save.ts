@@ -64,7 +64,7 @@ export function parseSave(json: string): { game: GameState; savedAt: number } | 
       zone: validZone,
       levels: parsedLevels,
       enemyHp: enemyMaxHp(stage, validZone),
-      bossTimeLeft: CONFIG.bossTimeout,
+      bossTimeLeft: CONFIG.zones[validZone].bossTimeout,
     },
   };
 }

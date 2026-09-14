@@ -7,8 +7,9 @@ import { ChevronsRight, Shield, Sword } from 'lucide-react-native';
 import { EnemyCard } from '../components/EnemyCard';
 import { FloatingNumbers } from '../components/FloatingNumbers';
 import type { Hit } from '../components/FloatingNumbers';
+import { ZoneSelect } from '../components/ZoneSelect';
 import {
-  attacksPerSecond, canAdvance, critChance, critMultiplier, dps, goldPerSecond, hitDamage, isBoss,
+  CONFIG, attacksPerSecond, canAdvance, critChance, critMultiplier, dps, goldPerSecond, hitDamage, isBoss,
 } from '../engine/engine';
 import { formatNumber } from '../engine/format';
 import { useGame } from '../game/store';
@@ -25,6 +26,8 @@ const NOTICE_MS = 2000;
 export function CombatScreen() {
   const shake = useSharedValue(0);
   const hits = useHitFeed(shake);
+  const [choosingZone, setChoosingZone] = useState(false);
+  const advance = useGame(s => s.advance);
 
   return (
     <View style={styles.screen}>
@@ -36,8 +39,18 @@ export function CombatScreen() {
         <EnemyCard shake={shake} />
       </View>
       <BossNotice />
-      <AdvanceButton />
+      <AdvanceButton onChooseZone={() => setChoosingZone(true)} />
       <Footer />
+      {/* O combate continua por baixo enquanto o jogador decide. */}
+      {choosingZone && (
+        <ZoneSelect
+          onChoose={zone => {
+            advance(zone);
+            setChoosingZone(false);
+          }}
+          onClose={() => setChoosingZone(false)}
+        />
+      )}
     </View>
   );
 }
@@ -100,24 +113,28 @@ function BossNotice() {
   return <Text style={styles.notice}>{text ?? ' '}</Text>;
 }
 
-function AdvanceButton() {
+function AdvanceButton({ onChooseZone }: { onChooseZone: () => void }) {
   const stage = useGame(s => s.game.stage);
   const enabled = useGame(s => canAdvance(s.game));
   const onAdvance = useGame(s => s.advance);
   const next = stage + 1;
+  // Depois de vencer o boss, avançar passa pela escolha da próxima zona.
+  const leavingBoss = isBoss(stage);
   const textColor = enabled ? colors.bg : colors.muted;
 
   return (
     <Pressable
-      onPress={onAdvance}
+      onPress={leavingBoss ? onChooseZone : () => onAdvance()}
       disabled={!enabled}
       accessibilityRole="button"
       accessibilityState={{ disabled: !enabled }}
       style={({ pressed }) => [styles.advance, !enabled && styles.advanceDisabled, pressed && styles.advancePressed]}
     >
-      <Text style={[styles.advanceText, { color: textColor }]}>{t.advance}</Text>
+      <Text style={[styles.advanceText, { color: textColor }]}>{leavingBoss ? t.chooseZone : t.advance}</Text>
       <Text style={[styles.advanceSub, { color: textColor }]}>
-        {t.stage} {next}{isBoss(next) ? ` · ${t.boss}` : ''}
+        {leavingBoss
+          ? t.stages(next, stage + CONFIG.bossEvery)
+          : `${t.stage} ${next}${isBoss(next) ? ` · ${t.boss}` : ''}`}
       </Text>
       <ChevronsRight size={20} color={textColor} />
     </Pressable>

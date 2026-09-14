@@ -5,7 +5,7 @@ import { Coins, Ghost } from 'lucide-react-native';
 import { formatNumber } from '../engine/format';
 import { useGame } from '../game/store';
 import { t } from '../strings';
-import { colors } from '../theme';
+import { colors, zoneColors } from '../theme';
 
 export function TopBar() {
   const gold = useGame(s => s.game.gold);
@@ -19,7 +19,7 @@ export function TopBar() {
       <Stat icon={<Ghost size={18} color={colors.souls} />} value={formatNumber(souls)} color={colors.souls} label={t.souls} />
       <View style={styles.stageBox}>
         <Text style={styles.stageText}>{t.stage} {stage}</Text>
-        <Text style={styles.zoneText}>{t.zones[zone]}</Text>
+        <Text style={[styles.zoneText, { color: zoneColors[zone] }]}>{t.zones[zone]}</Text>
       </View>
     </View>
   );
@@ -44,5 +44,5 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 16, fontWeight: '700', fontVariant: ['tabular-nums'] },
   stageBox: { marginLeft: 'auto', alignItems: 'flex-end' },
   stageText: { color: colors.text, fontSize: 16, fontWeight: '700' },
-  zoneText: { color: colors.muted, fontSize: 12 },
+  zoneText: { fontSize: 12, fontWeight: '600' },
 });

@@ -10,6 +10,14 @@ export const colors = {
   souls: '#9A86D1',
   hp: '#B8453B',
   boss: '#D2433A',
+  good: '#8DBF6A',
   crit: '#F5B83D',
   weapon: '#6B6862', // Rusted Dagger — a arma muda com o nível de Attack no marco 8
+} as const;
+
+// Cor de destaque de cada zona: nome no topo e borda da carta de escolha.
+export const zoneColors = {
+  ruins: '#C98B3B',
+  catacombs: '#9A8FB5',
+  ravine: '#4F9BB0',
 } as const;

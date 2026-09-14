@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  CONFIG, advance, bulkCost, buy, canAdvance, enemyGold, enemyMaxHp, goldPerSecond, newGame, prestige, tick,
+  CONFIG, advance, bulkCost, buy, canAdvance, enemyGold, enemyMaxHp, enterStage, goldPerSecond, newGame, prestige, tick,
 } from './engine.ts';
 import type { GameState, TickResult } from './engine.ts';
 
@@ -47,12 +47,12 @@ test('Advance só libera depois do primeiro kill da fase', () => {
   assert.equal(canAdvance(next), false);
 });
 
-test('boss não morto em 45s volta uma fase', () => {
+test('boss não morto a tempo volta uma fase', () => {
   const r = fight(atStage(10));
   assert.equal(r.bossFailed, true);
   assert.equal(r.state.stage, 9);
   assert.equal(r.state.enemyHp, enemyMaxHp(9, CONFIG.startZone));
-  assert.ok(Math.abs(r.ticks * CONFIG.tickSeconds - CONFIG.bossTimeout) < 0.15);
+  assert.ok(Math.abs(r.ticks * CONFIG.tickSeconds - CONFIG.zones[CONFIG.startZone].bossTimeout) < 0.15);
   assert.equal(canAdvance(r.state), true);
 });
 
@@ -67,6 +67,21 @@ test('sair do boss exige escolher a zona, que muda vida e ouro', () => {
   assert.equal(next.enemyHp, enemyMaxHp(11, 'ruins'));
   assert.ok(Math.abs(enemyMaxHp(11, 'ruins') / enemyMaxHp(11, 'catacombs') - 1.4) < 1e-9);
   assert.ok(Math.abs(enemyGold(11, 'ruins') / enemyGold(11, 'catacombs') - 2) < 1e-9);
+});
+
+// Os dois testes abaixo fixam o desenho de zonas escolhido para o problema 5.
+test('Ruins: o boss foge em 30s', () => {
+  const r = fight(enterStage({ ...newGame(), highestStage: 30, highestCleared: 29 }, 30, 'ruins'));
+  assert.equal(r.bossFailed, true);
+  assert.ok(Math.abs(r.ticks * CONFIG.tickSeconds - 30) < 0.15);
+  assert.equal(r.state.stage, 29);
+  assert.equal(r.state.zone, 'ruins');
+});
+
+test('Ravine: o boss tem ×1.5 da vida do inimigo comum, e não ×2.5', () => {
+  const bossRatio = (zone: 'ravine' | 'catacombs') => enemyMaxHp(30, zone) / enemyMaxHp(29, zone) / CONFIG.hpGrowth;
+  assert.ok(Math.abs(bossRatio('ravine') - 1.5) < 1e-9);
+  assert.ok(Math.abs(bossRatio('catacombs') - 2.5) < 1e-9);
 });
 
 test('no máximo um kill por tick, mesmo com dano sobrando', () => {

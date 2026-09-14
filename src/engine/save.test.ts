@@ -16,7 +16,7 @@ test('save ida e volta preserva o progresso e recria o inimigo cheio', () => {
   const loaded = parseSave(serializeSave(played, 1_700_000_000_000));
   assert.ok(loaded);
   assert.equal(loaded.savedAt, 1_700_000_000_000);
-  assert.deepEqual(loaded.game, { ...played, enemyHp: enemyMaxHp(37, 'ruins'), bossTimeLeft: CONFIG.bossTimeout });
+  assert.deepEqual(loaded.game, { ...played, enemyHp: enemyMaxHp(37, 'ruins'), bossTimeLeft: CONFIG.zones.ruins.bossTimeout });
 });
 
 test('save corrompido ou de outra versão é descartado', () => {
