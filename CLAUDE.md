@@ -62,7 +62,7 @@ a mecânica central.
 ## 4. Números calibrados
 
 Todos os valores abaixo foram validados por simulação. **Não altere nenhum sem
-rodar `motor-idle.ts` antes.**
+rodar `npm run sim` antes.**
 
 ### Inimigos
 
@@ -129,16 +129,22 @@ compõem exponencialmente e destroem a curva.
 
 ### O que a simulação produziu
 
-Com ouro 1.24 e um jogador que farma até o kill cair abaixo de 8s, sempre
-escolhendo Ruins:
+Com ouro 1.24 e um jogador que farma até o kill cair abaixo de 8s (e desiste
+depois de 40 kills na mesma fase), sempre escolhendo Ruins:
 
 - Muro na **fase 190**
-- **~4,6 horas** de jogo até o muro
-- **~1.300 kills**, média de 10s por kill
-- Nível de Attack ao fim: **572**
+- **~4,3 horas** de jogo até o muro, 94% dele farmando
+- **~1.360 kills**, média de 11s por kill
+- Nível de Attack ao fim: **574**
 
-Nenhuma estratégia de zona domina: Ruins leva mais fundo e custa mais tempo,
-Ravine é mais rápido e para antes, alternar é o caminho curto.
+| Estratégia de zona | Muro | Tempo |
+|---|---|---|
+| Sempre Ruins | 190 | 4,3h |
+| Alternando Ruins/Ravine | 190 | 5,0h |
+| Sempre Catacombs | 190 | 5,9h |
+| Sempre Ravine | 190 | 6,0h |
+
+Ruins domina: todas param na mesma fase e Ruins chega antes. Ver problema 5.
 
 ---
 
@@ -286,13 +292,13 @@ Se um dia houver versão PT-BR, é criar um segundo objeto.
 Estes são conhecidos e ainda não resolvidos. Nenhum bloqueia começar a codar.
 
 **1. A curva de prestígio acelera e quebra.** Com os valores atuais, cada run vai
-mais longe e mais rápido que a anterior; por volta da run 6 o jogo perde o
-controle (fase 1680 em 4 minutos). O oposto também é fácil de causar: baixando o
+muito mais longe que a anterior (190 → 390 → 1280) e na run 4 o jogo perde o
+controle (fase 2000 em 3 minutos). O oposto também é fácil de causar: baixando o
 bônus, todas as runs empacam na mesma fase. A janela é estreita. Caminho mais
 provável: fazer `hpGrowth` acelerar com a fase (ex. `1.32 + fase * 0.0004`) em vez
 de ser constante. **Simular antes de codar a tela de prestígio.**
 
-**2. Os marcos de arma não estão calibrados.** O jogador chega ao nível 572 de
+**2. Os marcos de arma não estão calibrados.** O jogador chega ao nível 574 de
 Attack numa run. Marcos até 200 seriam todos desbloqueados antes da metade. O
 espaçamento precisa sair da simulação: ~12 a 15 marcos até ~650, com intervalos
 crescentes (1, 10, 25, 50, 90, 140, 200, 270, 350, 440, 540, 650).
@@ -303,6 +309,10 @@ que afeta o meta-progresso e pode interagir mal com o problema 1.
 **4. Anúncio recompensado não está na curva.** Se entrar 2× de ouro por anúncio,
 um jogador que sempre assiste tem o dobro da economia simulada. Simular esse
 jogador antes de ligar o rewarded.
+
+**5. Ruins domina as outras zonas.** Com ouro 1.24, as quatro estratégias param
+na fase 190 e sempre-Ruins chega 1,7h antes de sempre-Ravine. Enquanto isso
+valer, a tela de zona não é uma decisão de verdade. Resolver antes do marco 5.
 
 ---
 
@@ -335,8 +345,9 @@ idle games convertem 1-3% em pagantes; o projeto é aprendizado, não renda.
 Cada marco é entregável e testável sozinho.
 
 1. **Motor no console** — tick, dano, morte, ouro, avanço. Sem React, sem tela.
-2. **Simulação de balanceamento** — já feita, ver `motor-idle.ts`. Rodar de novo
-   ao mexer em qualquer constante.
+   Feito em `src/engine/engine.ts`.
+2. **Simulação de balanceamento** — já feita, ver `sim/simulate.ts`. Rodar de novo
+   (`npm run sim`) ao mexer em qualquer constante.
 3. **Tela de Combat** — barra de vida, números flutuantes, botão Advance
 4. **Tela de Upgrades + save local**
 5. **Zonas + tela de seleção**
@@ -355,19 +366,19 @@ Os marcos 1 e 2 parecem os menos divertidos e são os que decidem se o jogo pres
 **Não altere constantes de balanceamento sem simular.** Os valores da seção 4 não
 são chutes — foram obtidos depois de várias iterações, e as duas primeiras
 tentativas produziram um jogo que travava na fase 10 e outro que acabava em 2
-minutos. `motor-idle.ts` roda com `npx tsx motor-idle.ts` e imprime a curva. Se
+minutos. `npm run sim` roda o motor real tick a tick e imprime a curva. Se
 mudar um número, rode e cole o resultado na conversa antes de seguir.
 
 **A intuição falha aqui.** Exemplo real: baixar o limiar de farm de 12s para 4s
 parecia que ia deixar o jogo menos grindy. Não deixou — o tempo total ficou
-praticamente igual (4,6h → 4,0h), só o número de kills dobrou.
+praticamente igual (4,5h → 4,0h), e o número de kills quase dobrou.
 
 **O limiar de farm não é constante do jogo.** É comportamento do jogador,
 existe só na simulação para modelar alguém razoável. Não implemente isso no app.
 
-**O motor é puro.** `motor-idle.ts` não importa React nem tem side effect. Mantenha
-assim: o mesmo código roda no app e na simulação. A parte "SIMULADOR" do arquivo
-fica fora do bundle.
+**O motor é puro.** `src/engine/` não importa React nem tem side effect. Mantenha
+assim: o mesmo código roda no app e na simulação. A pasta `sim/` fica fora do
+bundle.
 
 **Ao adicionar qualquer sistema novo**, cheque a seção 9 primeiro. Se estiver lá,
 foi recusado de propósito.
@@ -378,6 +389,10 @@ adjetivo + substantivo funciona sempre.
 
 ### Arquivos do projeto
 
-- `motor-idle.ts` — motor + simulador, com constantes calibradas
-- `simulacao-zonas.js` — experimento de farm manual e zonas, ainda não integrado
-  ao motor. Integrar é uma das primeiras tarefas.
+- `src/engine/engine.ts` — motor puro, com as constantes calibradas em `CONFIG`
+- `src/engine/format.ts` — números grandes (K, M, B, T, aa, ab…)
+- `sim/simulate.ts` — simulador de balanceamento; dirige o motor tick a tick
+- Comandos: `npm run sim`, `npm test`, `npm run typecheck`
+
+Os arquivos originais (`motor-idle.ts`, `simulacao-zonas.js`) estão no primeiro
+commit do git, caso precise consultar.

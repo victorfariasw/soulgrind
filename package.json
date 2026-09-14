@@ -1,0 +1,14 @@
+{
+  "name": "soulgrind",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "sim": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON sim/simulate.ts",
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"src/**/*.test.ts\"",
+    "typecheck": "tsc"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.4",
+    "typescript": "^7.0.2"
+  }
+}
