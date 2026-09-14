@@ -31,7 +31,7 @@ export const CONFIG = {
   critDamagePerLevel: 0.15,
   greedPerLevel: 0.05,
 
-  // Prestígio: a curva ainda quebra por volta da run 5 (problema 1).
+  // Prestígio: a curva ainda quebra por volta da run 4 (problema 1).
   prestigeMinStage: 30,
   soulsDivisor: 10,
   soulsExponent: 2.5,
@@ -71,6 +71,10 @@ export interface GameState {
   bossTimeLeft: number;   // só conta em fase de boss
 }
 
+// O que define o poder do herói. Qualquer GameState serve; a tela de upgrades
+// usa isso pra calcular o próximo nível sem montar um estado inteiro.
+export type Stats = Pick<GameState, 'levels' | 'souls'>;
+
 export interface TickResult {
   state: GameState;
   killed: boolean;
@@ -106,40 +110,47 @@ export function upgradeCost(id: UpgradeId, level: number): number {
   return u.baseCost * Math.pow(u.costGrowth, level);
 }
 
-function attackDamage(state: GameState): number {
-  return CONFIG.baseDamage * Math.pow(CONFIG.attackMult, state.levels.attack);
+// Custo de comprar `count` níveis seguidos a partir de `level`.
+export function bulkCost(id: UpgradeId, level: number, count: number): number {
+  let total = 0;
+  for (let i = 0; i < count; i++) total += upgradeCost(id, level + i);
+  return total;
 }
 
-export function attacksPerSecond(state: GameState): number {
-  return CONFIG.baseSpeed + state.levels.speed * CONFIG.speedPerLevel;
+function attackDamage(stats: Stats): number {
+  return CONFIG.baseDamage * Math.pow(CONFIG.attackMult, stats.levels.attack);
 }
 
-export function critChance(state: GameState): number {
-  return Math.min(state.levels.critChance, CONFIG.upgrades.critChance.maxLevel) * CONFIG.critChancePerLevel;
+export function attacksPerSecond(stats: Stats): number {
+  return CONFIG.baseSpeed + stats.levels.speed * CONFIG.speedPerLevel;
 }
 
-export function critMultiplier(state: GameState): number {
-  return CONFIG.baseCritDamage + state.levels.critDamage * CONFIG.critDamagePerLevel;
+export function critChance(stats: Stats): number {
+  return Math.min(stats.levels.critChance, CONFIG.upgrades.critChance.maxLevel) * CONFIG.critChancePerLevel;
 }
 
-export function soulMultiplier(state: GameState): number {
-  return Math.pow(CONFIG.soulBonus, state.souls);
+export function critMultiplier(stats: Stats): number {
+  return CONFIG.baseCritDamage + stats.levels.critDamage * CONFIG.critDamagePerLevel;
+}
+
+export function soulMultiplier(stats: Stats): number {
+  return Math.pow(CONFIG.soulBonus, stats.souls);
 }
 
 // Dano de um golpe sem crítico. O combate usa só a média (dps); golpes
 // individuais existem apenas na tela, para os números flutuantes.
-export function hitDamage(state: GameState): number {
-  return attackDamage(state) * soulMultiplier(state);
+export function hitDamage(stats: Stats): number {
+  return attackDamage(stats) * soulMultiplier(stats);
 }
 
 // Mesma ordem de multiplicação de sempre — mudar a ordem muda os últimos bits
 // e pode alterar desempates do simulador.
-export function dps(state: GameState): number {
-  return attackDamage(state) * attacksPerSecond(state) * (1 + critChance(state) * (critMultiplier(state) - 1)) * soulMultiplier(state);
+export function dps(stats: Stats): number {
+  return attackDamage(stats) * attacksPerSecond(stats) * (1 + critChance(stats) * (critMultiplier(stats) - 1)) * soulMultiplier(stats);
 }
 
-export function goldMultiplier(state: GameState): number {
-  return 1 + state.levels.greed * CONFIG.greedPerLevel;
+export function goldMultiplier(stats: Stats): number {
+  return 1 + stats.levels.greed * CONFIG.greedPerLevel;
 }
 
 // Ouro por segundo farmando o inimigo atual. Um kill leva um número inteiro de
@@ -154,7 +165,7 @@ export function soulsForStage(stage: number): number {
   return Math.floor(Math.pow(stage / CONFIG.soulsDivisor, CONFIG.soulsExponent));
 }
 
-function enterStage(state: GameState, stage: number, zone: ZoneId): GameState {
+export function enterStage(state: GameState, stage: number, zone: ZoneId): GameState {
   return { ...state, stage, zone, enemyHp: enemyMaxHp(stage, zone), bossTimeLeft: CONFIG.bossTimeout };
 }
 
@@ -198,12 +209,14 @@ export function advance(state: GameState, nextZone?: ZoneId): GameState | null {
   return enterStage({ ...state, highestStage: Math.max(state.highestStage, stage) }, stage, zone);
 }
 
-export function buy(state: GameState, id: UpgradeId): GameState | null {
+// Compra `count` níveis de uma vez, ou nada: sem ouro para todos, ou passando
+// do teto, retorna null.
+export function buy(state: GameState, id: UpgradeId, count = 1): GameState | null {
   const level = state.levels[id];
-  if (level >= CONFIG.upgrades[id].maxLevel) return null;
-  const cost = upgradeCost(id, level);
+  if (count < 1 || level + count > CONFIG.upgrades[id].maxLevel) return null;
+  const cost = bulkCost(id, level, count);
   if (state.gold < cost) return null;
-  return { ...state, gold: state.gold - cost, levels: { ...state.levels, [id]: level + 1 } };
+  return { ...state, gold: state.gold - cost, levels: { ...state.levels, [id]: level + count } };
 }
 
 // Zera fase, ouro, upgrades e zona. Mantém almas e a maior fase histórica.

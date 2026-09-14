@@ -2,21 +2,27 @@
 // GameState e contamos os eventos que a tela precisa animar.
 import { create } from 'zustand';
 
-import { advance, newGame, tick } from '../engine/engine';
-import type { GameState } from '../engine/engine';
+import { advance, buy, newGame, tick } from '../engine/engine';
+import type { GameState, UpgradeId } from '../engine/engine';
 
 interface GameStore {
   game: GameState;
+  hydrated: boolean; // save local já lido — o loop e a tela só começam depois disso
   kills: number;     // kills desde que o app abriu — troca a key do inimigo pra animar a entrada
   bossFails: number; // bosses que fugiram — dispara o aviso de volta de fase
+  hydrate: (saved: GameState | null) => void;
   step: (ticks: number) => void;
   advance: () => void;
+  buy: (id: UpgradeId, count: number) => void;
 }
 
 export const useGame = create<GameStore>()((set, get) => ({
   game: newGame(),
+  hydrated: false,
   kills: 0,
   bossFails: 0,
+
+  hydrate: saved => set({ game: saved ?? newGame(), hydrated: true }),
 
   step: ticks => {
     let { game, kills, bossFails } = get();
@@ -33,6 +39,11 @@ export const useGame = create<GameStore>()((set, get) => ({
     const { game } = get();
     // O marco 5 troca isso pela tela de zona (3 cartas). Até lá a zona se mantém.
     const next = advance(game, game.zone);
+    if (next) set({ game: next });
+  },
+
+  buy: (id, count) => {
+    const next = buy(get().game, id, count);
     if (next) set({ game: next });
   },
 }));

@@ -253,17 +253,18 @@ Só o que dá peso, nunca o que atrasa o jogador:
 Um único objeto JSON, salvo a cada 10s e ao perder foco.
 
 ```ts
-interface Save {
-  stage: number;
-  maiorStage: number;
-  gold: number;
-  almas: number;
-  zona: 'ruins' | 'catacombs' | 'ravine';
-  fasesRestantesNaZona: number;
-  niveis: { attack: number; speed: number; critChance: number; critDamage: number; greed: number };
-  ultimoSave: number;
+interface SaveFile {
+  version: 1;        // suba ao mudar o formato e converta a versão anterior
+  savedAt: number;   // ms — base do progresso offline
+  game: { stage; highestStage; highestCleared; gold; souls; zone; levels };
 }
 ```
+
+Formato e validação ficam em `src/engine/save.ts` (puro, testado); leitura e
+gravação no AsyncStorage em `src/game/persistence.ts`. A vida do inimigo e o
+tempo do boss não são salvos: ao abrir, o inimigo volta cheio. As fases
+restantes na zona saem de `stage`. Save inválido é descartado e o jogo começa
+do zero — nunca grave antes de ler, ou o save é sobrescrito por um jogo novo.
 
 ### Números grandes
 
@@ -351,6 +352,7 @@ Cada marco é entregável e testável sozinho.
 3. **Tela de Combat** — barra de vida, números flutuantes, botão Advance
    Feito em `src/screens/CombatScreen.tsx`. Até o marco 5, sair do boss mantém a zona.
 4. **Tela de Upgrades + save local**
+   Feito em `src/screens/UpgradesScreen.tsx` e `src/game/persistence.ts`.
 5. **Zonas + tela de seleção**
 6. **Progresso offline + modal**
 7. **Prestígio** (resolver o problema 1 antes)
@@ -396,6 +398,10 @@ adjetivo + substantivo funciona sempre.
 - `src/game/store.ts` — estado do app (Zustand) em volta do motor
 - `src/game/useGameLoop.ts` — loop de tick fixo de 100ms
 - `src/screens/CombatScreen.tsx` e `src/components/` — tela de Combat
+- `src/screens/UpgradesScreen.tsx` — upgrades com ×1 e ×10
+- `src/components/TopBar.tsx` e `TabBar.tsx` — moldura comum às telas
+- `src/engine/save.ts` — formato do save e validação (puro, testado)
+- `src/game/persistence.ts` — lê o save ao abrir; grava a cada 10s e ao perder foco
 - `src/strings.ts` — todas as strings do jogo; `src/theme.ts` — cores
 - Comandos: `npm start` (Expo Go ou web), `npm run sim`, `npm test`, `npm run typecheck`
 

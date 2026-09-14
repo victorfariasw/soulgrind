@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  CONFIG, advance, buy, canAdvance, enemyGold, enemyMaxHp, goldPerSecond, newGame, prestige, tick,
+  CONFIG, advance, bulkCost, buy, canAdvance, enemyGold, enemyMaxHp, goldPerSecond, newGame, prestige, tick,
 } from './engine.ts';
 import type { GameState, TickResult } from './engine.ts';
 
@@ -80,6 +80,27 @@ test('Crit Chance não passa do teto de 50%', () => {
   const rich = { ...newGame(), gold: 1e30 };
   assert.ok(buy(rich, 'critChance'));
   assert.equal(buy({ ...rich, levels: { ...rich.levels, critChance: 50 } }, 'critChance'), null);
+});
+
+test('compra em lote custa o mesmo que comprar um por um', () => {
+  const rich = { ...newGame(), gold: 1e6 };
+  let oneByOne: GameState = rich;
+  for (let i = 0; i < 10; i++) oneByOne = buy(oneByOne, 'attack')!;
+
+  const ten = buy(rich, 'attack', 10);
+  assert.ok(ten);
+  assert.equal(ten.levels.attack, 10);
+  assert.equal(ten.gold, rich.gold - bulkCost('attack', 0, 10));
+  assert.ok(Math.abs(ten.gold - oneByOne.gold) < 1e-6);
+});
+
+test('compra em lote é tudo ou nada', () => {
+  const rich = { ...newGame(), gold: 1e6 };
+  assert.equal(buy({ ...rich, gold: bulkCost('attack', 0, 10) - 1 }, 'attack', 10), null);
+
+  const nearCap = { ...rich, levels: { ...rich.levels, critChance: 45 } };
+  assert.equal(buy(nearCap, 'critChance', 10), null);
+  assert.equal(buy(nearCap, 'critChance', 5)?.levels.critChance, 50);
 });
 
 test('prestígio zera a run e guarda almas e maior fase', () => {

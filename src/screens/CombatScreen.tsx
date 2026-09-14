@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronsRight, Coins, Ghost, Shield, Sword } from 'lucide-react-native';
+import { ChevronsRight, Shield, Sword } from 'lucide-react-native';
 
 import { EnemyCard } from '../components/EnemyCard';
 import { FloatingNumbers } from '../components/FloatingNumbers';
@@ -29,8 +27,7 @@ export function CombatScreen() {
   const hits = useHitFeed(shake);
 
   return (
-    <SafeAreaView style={styles.screen}>
-      <TopBar />
+    <View style={styles.screen}>
       <View style={styles.arena}>
         <HeroCard />
         <View style={styles.hits}>
@@ -41,7 +38,7 @@ export function CombatScreen() {
       <BossNotice />
       <AdvanceButton />
       <Footer />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -74,33 +71,6 @@ function useHitFeed(shake: SharedValue<number>): Hit[] {
   }, [aps, shake]);
 
   return hits;
-}
-
-function TopBar() {
-  const gold = useGame(s => s.game.gold);
-  const souls = useGame(s => s.game.souls);
-  const stage = useGame(s => s.game.stage);
-  const zone = useGame(s => s.game.zone);
-
-  return (
-    <View style={styles.topBar}>
-      <Stat icon={<Coins size={18} color={colors.gold} />} value={formatNumber(gold)} color={colors.gold} label={t.gold} />
-      <Stat icon={<Ghost size={18} color={colors.souls} />} value={formatNumber(souls)} color={colors.souls} label={t.souls} />
-      <View style={styles.stageBox}>
-        <Text style={styles.stageText}>{t.stage} {stage}</Text>
-        <Text style={styles.zoneText}>{t.zones[zone]}</Text>
-      </View>
-    </View>
-  );
-}
-
-function Stat({ icon, value, color, label }: { icon: ReactNode; value: string; color: string; label: string }) {
-  return (
-    <View style={styles.stat} accessibilityLabel={`${label} ${value}`}>
-      {icon}
-      <Text style={[styles.statValue, { color }]}>{value}</Text>
-    </View>
-  );
 }
 
 function HeroCard() {
@@ -162,29 +132,18 @@ function Footer() {
     <View style={styles.footer}>
       <View>
         <Text style={styles.footerLabel}>{t.dps}</Text>
-        <Text style={styles.footerValue}>{formatNumber(currentDps)}</Text>
+        <Text style={styles.footerValue}>{formatNumber(currentDps, 1)}</Text>
       </View>
       <View>
         <Text style={styles.footerLabel}>{t.goldPerSecond}</Text>
-        <Text style={[styles.footerValue, { color: colors.gold }]}>{formatNumber(gps)}</Text>
+        <Text style={[styles.footerValue, { color: colors.gold }]}>{formatNumber(gps, 1)}</Text>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bg },
-
-  topBar: {
-    flexDirection: 'row', alignItems: 'center', gap: 16,
-    paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
-  },
-  stat: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  statValue: { fontSize: 16, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  stageBox: { marginLeft: 'auto', alignItems: 'flex-end' },
-  stageText: { color: colors.text, fontSize: 16, fontWeight: '700' },
-  zoneText: { color: colors.muted, fontSize: 12 },
+  screen: { flex: 1 },
 
   arena: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 },
   heroCard: {
@@ -207,11 +166,7 @@ const styles = StyleSheet.create({
   advanceText: { fontSize: 17, fontWeight: '800', letterSpacing: 0.5 },
   advanceSub: { fontSize: 14, fontWeight: '600' },
 
-  footer: {
-    flexDirection: 'row', justifyContent: 'space-around',
-    paddingVertical: 12, marginTop: 12,
-    borderTopWidth: 1, borderTopColor: colors.border,
-  },
+  footer: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 12, marginTop: 12 },
   footerLabel: { color: colors.muted, fontSize: 12, textAlign: 'center' },
   footerValue: { color: colors.text, fontSize: 16, fontWeight: '700', fontVariant: ['tabular-nums'], textAlign: 'center' },
 });

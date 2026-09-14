@@ -12,4 +12,24 @@ export const t = {
   goldPerSecond: 'Gold/s',
   bossFled: (stage: number) => `Too slow. Back to Stage ${stage}.`,
   zones: { ruins: 'Ruins', catacombs: 'Catacombs', ravine: 'Ravine' },
+
+  combat: 'Combat',
+  upgrades: 'Upgrades',
+  level: 'Lv',
+  buy: 'Buy',
+  max: 'MAX',
+  upgradeNames: {
+    attack: 'Attack',
+    speed: 'Speed',
+    critChance: 'Crit Chance',
+    critDamage: 'Crit Damage',
+    greed: 'Greed',
+  },
+  upgradeEffects: {
+    attack: 'Damage',
+    speed: 'Attacks',
+    critChance: 'Crit chance',
+    critDamage: 'Crit damage',
+    greed: 'Gold',
+  },
 } as const;

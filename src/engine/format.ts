@@ -11,11 +11,18 @@ function suffix(group: number): string {
   return LETTERS[Math.floor(i / 26)] + LETTERS[i % 26];
 }
 
-export function formatNumber(n: number): string {
+// Trunca em vez de arredondar: nunca mostra mais ouro do que o jogador tem.
+function truncate(n: number, decimals: number): string {
+  const scale = Math.pow(10, decimals);
+  return (Math.floor(n * scale + 1e-9) / scale).toFixed(decimals);
+}
+
+// `decimals` só vale abaixo de mil (ex.: dps 2.16); acima disso são sempre 2 casas + sufixo.
+export function formatNumber(n: number, decimals = 0): string {
   if (Number.isNaN(n)) return 'NaN';
-  if (n < 0) return '-' + formatNumber(-n);
+  if (n < 0) return '-' + formatNumber(-n, decimals);
   if (n === Infinity) return '∞';
-  if (n < 1000) return String(Math.floor(n));
+  if (n < 1000) return truncate(n, decimals);
 
   let group = Math.floor(Math.log10(n) / 3);
   let mantissa = n / Math.pow(1000, group);
@@ -23,6 +30,5 @@ export function formatNumber(n: number): string {
   if (mantissa >= 1000) { mantissa /= 1000; group++; }
   if (mantissa < 1) { mantissa *= 1000; group--; }
 
-  // Trunca em vez de arredondar: nunca mostra mais ouro do que o jogador tem.
-  return (Math.floor(mantissa * 100 + 1e-9) / 100).toFixed(2) + suffix(group);
+  return truncate(mantissa, 2) + suffix(group);
 }

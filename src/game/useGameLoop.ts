@@ -9,8 +9,11 @@ import { useGame } from './store';
 // progresso offline (marco 6).
 const MAX_TICKS_PER_STEP = 10;
 
-export function useGameLoop(): void {
+// `enabled` fica falso até o save ser lido, pra não jogar em cima de um estado
+// que vai ser substituído.
+export function useGameLoop(enabled: boolean): void {
   useEffect(() => {
+    if (!enabled) return;
     const tickMs = CONFIG.tickSeconds * 1000;
     let last = Date.now();
     let pending = 0;
@@ -26,5 +29,5 @@ export function useGameLoop(): void {
     }, tickMs);
 
     return () => clearInterval(id);
-  }, []);
+  }, [enabled]);
 }

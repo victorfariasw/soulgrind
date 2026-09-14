@@ -8,6 +8,12 @@ test('abaixo de mil mostra inteiro truncado', () => {
   assert.equal(formatNumber(999.9), '999');
 });
 
+test('casas decimais só abaixo de mil, sempre truncadas', () => {
+  assert.equal(formatNumber(2.16, 2), '2.16');
+  assert.equal(formatNumber(0.349, 1), '0.3');
+  assert.equal(formatNumber(1234.5, 2), '1.23K');
+});
+
 test('K, M, B, T e depois aa, ab…', () => {
   assert.equal(formatNumber(4200), '4.20K');
   assert.equal(formatNumber(999_999), '999.99K');
