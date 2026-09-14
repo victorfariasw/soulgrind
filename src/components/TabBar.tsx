@@ -1,15 +1,16 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { ChevronsUp, Swords } from 'lucide-react-native';
+import { ChevronsUp, Ghost, Swords } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 
 import { t } from '../strings';
 import { colors } from '../theme';
 
-export type Tab = 'combat' | 'upgrades';
+export type Tab = 'combat' | 'upgrades' | 'prestige';
 
 const TABS: { id: Tab; label: string; Icon: LucideIcon }[] = [
   { id: 'combat', label: t.combat, Icon: Swords },
   { id: 'upgrades', label: t.upgrades, Icon: ChevronsUp },
+  { id: 'prestige', label: t.prestige, Icon: Ghost },
 ];
 
 export function TabBar({ tab, onChange }: { tab: Tab; onChange: (tab: Tab) => void }) {

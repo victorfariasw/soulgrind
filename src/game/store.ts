@@ -2,7 +2,7 @@
 // GameState e contamos os eventos que a tela precisa animar.
 import { create } from 'zustand';
 
-import { advance, applyOffline, buy, newGame, tick } from '../engine/engine';
+import { advance, applyOffline, autoAdvance, buy, newGame, prestige, tick } from '../engine/engine';
 import type { GameState, UpgradeId, ZoneId } from '../engine/engine';
 
 // Ausências menores que isso rendem ouro, mas não abrem o modal — senão ele
@@ -25,6 +25,7 @@ interface GameStore {
   // Saindo de um boss, `zone` é obrigatória (vem da tela de 3 cartas).
   advance: (zone?: ZoneId) => void;
   buy: (id: UpgradeId, count: number) => void;
+  prestige: () => void;
   returnFromAway: (awaySeconds: number) => void;
   dismissAwayReport: () => void;
 }
@@ -43,7 +44,11 @@ export const useGame = create<GameStore>()((set, get) => ({
     for (let i = 0; i < ticks; i++) {
       const r = tick(game);
       game = r.state;
-      if (r.killed) kills++;
+      if (r.killed) {
+        kills++;
+        // Abaixo do recorde não há decisão: a subida automática avança sozinha.
+        game = autoAdvance(game) ?? game;
+      }
       if (r.bossFailed) bossFails++;
     }
     set({ game, kills, bossFails });
@@ -56,6 +61,11 @@ export const useGame = create<GameStore>()((set, get) => ({
 
   buy: (id, count) => {
     const next = buy(get().game, id, count);
+    if (next) set({ game: next });
+  },
+
+  prestige: () => {
+    const next = prestige(get().game);
     if (next) set({ game: next });
   },
 

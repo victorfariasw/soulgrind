@@ -3,12 +3,13 @@ import { CONFIG, UPGRADE_IDS, ZONE_IDS, enemyMaxHp } from './engine.ts';
 import type { GameState, UpgradeId, ZoneId } from './engine.ts';
 
 // Suba a versão ao mudar o formato e converta a anterior em parseSave.
-export const SAVE_VERSION = 1;
+// v2 (marco 7): sai highestStage, entram record e pendingSouls.
+export const SAVE_VERSION = 2;
 
 export interface SaveFile {
   version: number;
-  savedAt: number; // ms desde 1970 — base do progresso offline (marco 6)
-  game: Omit<GameState, 'enemyHp' | 'bossTimeLeft'>;
+  savedAt: number; // ms desde 1970 — base do progresso offline
+  game: Omit<GameState, 'enemyHp' | 'bossTimeLeft' | 'climbPaused'>;
 }
 
 export function serializeSave(state: GameState, now: number): string {
@@ -17,10 +18,11 @@ export function serializeSave(state: GameState, now: number): string {
     savedAt: now,
     game: {
       stage: state.stage,
-      highestStage: state.highestStage,
       highestCleared: state.highestCleared,
+      record: state.record,
       gold: state.gold,
       souls: state.souls,
+      pendingSouls: state.pendingSouls,
       zone: state.zone,
       levels: state.levels,
     },
@@ -37,15 +39,17 @@ export function parseSave(json: string): { game: GameState; savedAt: number } | 
   } catch {
     return null;
   }
-  if (!isRecord(data) || data.version !== SAVE_VERSION) return null;
-  const { savedAt, game } = data;
+  if (!isRecord(data) || (data.version !== 1 && data.version !== SAVE_VERSION)) return null;
+  const { savedAt } = data;
+  const game = data.version === 1 ? migrateV1(data.game) : data.game;
   if (!isAmount(savedAt) || !isRecord(game)) return null;
 
-  const { stage, highestStage, highestCleared, gold, souls, zone, levels } = game;
+  const { stage, highestCleared, record, gold, souls, pendingSouls, zone, levels } = game;
   if (!isCount(stage) || stage < 1) return null;
-  if (!isCount(highestStage) || highestStage < stage) return null;
-  if (!isCount(highestCleared) || highestCleared < stage - 1 || highestCleared > highestStage) return null;
-  if (!isAmount(gold) || !isCount(souls)) return null;
+  if (!isCount(highestCleared) || highestCleared < stage - 1) return null;
+  // O recorde é um boss e nunca fica abaixo do último boss vencido nesta run.
+  if (!isCount(record) || record % CONFIG.bossEvery !== 0 || record < lastBossUpTo(highestCleared)) return null;
+  if (!isAmount(gold) || !isCount(souls) || !isCount(pendingSouls)) return null;
   if (typeof zone !== 'string' || !(ZONE_IDS as string[]).includes(zone)) return null;
   if (!isRecord(levels)) return null;
 
@@ -60,13 +64,29 @@ export function parseSave(json: string): { game: GameState; savedAt: number } | 
   return {
     savedAt,
     game: {
-      stage, highestStage, highestCleared, gold, souls,
+      stage, highestCleared, record, gold, souls, pendingSouls,
       zone: validZone,
       levels: parsedLevels,
       enemyHp: enemyMaxHp(stage, validZone),
       bossTimeLeft: CONFIG.zones[validZone].bossTimeout,
+      climbPaused: false,
     },
   };
+}
+
+// v1 não tinha prestígio: o recorde é o último boss vencido na run, e as almas
+// desses bosses (a partir da fase 30) ficam pendentes. Almas antigas não valem —
+// eram de outra fórmula e nunca foram usadas.
+function migrateV1(game: unknown): unknown {
+  if (!isRecord(game) || !isCount(game.highestCleared)) return null;
+  const record = lastBossUpTo(game.highestCleared);
+  const firstSoulBoss = Math.ceil(CONFIG.prestigeMinStage / CONFIG.bossEvery);
+  const pendingSouls = Math.max(0, record / CONFIG.bossEvery - firstSoulBoss + 1);
+  return { ...game, record, souls: 0, pendingSouls };
+}
+
+function lastBossUpTo(stage: number): number {
+  return Math.floor(stage / CONFIG.bossEvery) * CONFIG.bossEvery;
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {

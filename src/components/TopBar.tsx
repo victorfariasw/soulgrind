@@ -10,13 +10,16 @@ import { colors, zoneColors } from '../theme';
 export function TopBar() {
   const gold = useGame(s => s.game.gold);
   const souls = useGame(s => s.game.souls);
+  const pendingSouls = useGame(s => s.game.pendingSouls);
   const stage = useGame(s => s.game.stage);
   const zone = useGame(s => s.game.zone);
+  // Almas desta run aparecem ao lado, até o prestígio convertê-las.
+  const soulsText = pendingSouls > 0 ? `${formatNumber(souls)} +${pendingSouls}` : formatNumber(souls);
 
   return (
     <View style={styles.bar}>
       <Stat icon={<Coins size={18} color={colors.gold} />} value={formatNumber(gold)} color={colors.gold} label={t.gold} />
-      <Stat icon={<Ghost size={18} color={colors.souls} />} value={formatNumber(souls)} color={colors.souls} label={t.souls} />
+      <Stat icon={<Ghost size={18} color={colors.souls} />} value={soulsText} color={colors.souls} label={t.souls} />
       <View style={styles.stageBox}>
         <Text style={styles.stageText}>{t.stage} {stage}</Text>
         <Text style={[styles.zoneText, { color: zoneColors[zone] }]}>{t.zones[zone]}</Text>

@@ -11,6 +11,7 @@ import { usePersistence } from './src/game/persistence';
 import { useAppActive } from './src/game/useAppActive';
 import { useGameLoop } from './src/game/useGameLoop';
 import { CombatScreen } from './src/screens/CombatScreen';
+import { PrestigeScreen } from './src/screens/PrestigeScreen';
 import { UpgradesScreen } from './src/screens/UpgradesScreen';
 import { colors } from './src/theme';
 
@@ -29,7 +30,9 @@ export default function App() {
         {ready && (
           <>
             <TopBar />
-            {tab === 'combat' ? <CombatScreen /> : <UpgradesScreen />}
+            {tab === 'combat' && <CombatScreen />}
+            {tab === 'upgrades' && <UpgradesScreen />}
+            {tab === 'prestige' && <PrestigeScreen onPrestiged={() => setTab('combat')} />}
             <TabBar tab={tab} onChange={setTab} />
             <AwayModal />
           </>

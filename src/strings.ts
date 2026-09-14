@@ -12,6 +12,8 @@ export const t = {
   goldPerSecond: 'Gold/s',
   bossFled: (stage: number) => `Too slow. Back to Stage ${stage}.`,
   zones: { ruins: 'Ruins', catacombs: 'Catacombs', ravine: 'Ravine' },
+  climbing: 'Climbing',
+  toStage: (stage: number) => `to Stage ${stage}`,
 
   combat: 'Combat',
   upgrades: 'Upgrades',
@@ -54,4 +56,16 @@ export const t = {
   heroGathered: 'Your hero gathered',
   offlineCap: (hours: number) => `Offline gains stop after ${hours}h.`,
   collect: 'Collect',
+
+  soulsThisRun: 'souls this run',
+  damageFromSouls: 'Damage from souls',
+  record: 'Record',
+  prestigeRules: (mult: number, fromStage: number) =>
+    `Each boss you beat for the first time gives 1 soul (from Stage ${fromStage}). Each soul multiplies your damage by ×${mult}.`,
+  prestigeResets:
+    'Prestige resets gold, upgrades and stage. You keep your souls and record, and stages up to your record climb by themselves.',
+  prestigeConfirm: 'Start over from Stage 1? Gold and upgrades will be lost.',
+  prestigeLocked: (stage: number) => `Beat the Stage ${stage} boss to earn a soul.`,
+  cancel: 'Cancel',
+  startOver: 'Start over',
 } as const;

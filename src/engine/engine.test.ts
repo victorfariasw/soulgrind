@@ -2,8 +2,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  CONFIG, advance, applyOffline, bulkCost, buy, canAdvance, enemyGold, enemyMaxHp, enterStage, goldPerSecond, newGame,
-  prestige, tick,
+  CONFIG, advance, applyOffline, autoAdvance, bulkCost, buy, canAdvance, climbZone, dps, enemyGold, enemyMaxHp,
+  enterStage, goldPerSecond, isClimbing, newGame, nextSoulStage, prestige, tick,
 } from './engine.ts';
 import type { GameState, TickResult } from './engine.ts';
 
@@ -21,12 +21,14 @@ function atStage(stage: number, overrides: Partial<GameState> = {}): GameState {
   return {
     ...newGame(),
     stage,
-    highestStage: stage,
     highestCleared: stage - 1,
     enemyHp: enemyMaxHp(stage, CONFIG.startZone),
     ...overrides,
   };
 }
+
+// Mata qualquer coisa das fases baixas num tick.
+const strong = { ...newGame().levels, attack: 300 };
 
 test('inimigo morto renasce na mesma fase e paga ouro', () => {
   const r = fight(newGame());
@@ -44,7 +46,6 @@ test('Advance só libera depois do primeiro kill da fase', () => {
   const next = advance(fight(start).state);
   assert.ok(next);
   assert.equal(next.stage, 2);
-  assert.equal(next.highestStage, 2);
   assert.equal(canAdvance(next), false);
 });
 
@@ -72,7 +73,7 @@ test('sair do boss exige escolher a zona, que muda vida e ouro', () => {
 
 // Os dois testes abaixo fixam o desenho de zonas escolhido para o problema 5.
 test('Ruins: o boss foge em 30s', () => {
-  const r = fight(enterStage({ ...newGame(), highestStage: 30, highestCleared: 29 }, 30, 'ruins'));
+  const r = fight(enterStage({ ...newGame(), highestCleared: 29 }, 30, 'ruins'));
   assert.equal(r.bossFailed, true);
   assert.ok(Math.abs(r.ticks * CONFIG.tickSeconds - 30) < 0.15);
   assert.equal(r.state.stage, 29);
@@ -86,8 +87,7 @@ test('Ravine: o boss tem ×1.5 da vida do inimigo comum, e não ×2.5', () => {
 });
 
 test('no máximo um kill por tick, mesmo com dano sobrando', () => {
-  const start = newGame();
-  const r = tick({ ...start, levels: { ...start.levels, attack: 300 } });
+  const r = tick({ ...newGame(), levels: strong });
   assert.equal(r.killed, true);
   assert.equal(r.state.gold, CONFIG.goldBase);
 });
@@ -119,24 +119,84 @@ test('compra em lote é tudo ou nada', () => {
   assert.equal(buy(nearCap, 'critChance', 5)?.levels.critChance, 50);
 });
 
-test('prestígio zera a run e guarda almas e maior fase', () => {
-  const end = atStage(190, { gold: 1e20, levels: { ...newGame().levels, attack: 572 } });
+// Prestígio (problema 1): 1 alma por boss novo a partir da fase 30, ×1.9 de dano por alma.
+test('boss vencido pela primeira vez vira recorde e, a partir da fase 30, uma alma pendente', () => {
+  const r10 = tick(atStage(10, { levels: strong }));
+  assert.equal(r10.state.record, 10);
+  assert.equal(r10.state.pendingSouls, 0); // antes da fase 30 não rende alma
+
+  const r30 = tick(atStage(30, { levels: strong, record: 20 }));
+  assert.equal(r30.state.record, 30);
+  assert.equal(r30.state.pendingSouls, 1);
+  assert.equal(tick(r30.state).state.pendingSouls, 1); // o mesmo boss de novo não rende
+
+  const belowRecord = tick(atStage(30, { levels: strong, record: 50 }));
+  assert.equal(belowRecord.state.pendingSouls, 0);
+  assert.equal(belowRecord.state.record, 50);
+
+  assert.equal(nextSoulStage(0), 30);
+  assert.equal(nextSoulStage(150), 160);
+});
+
+test('prestígio soma as almas da run, zera a run e mantém o recorde', () => {
+  const end = atStage(157, { gold: 1e20, souls: 4, pendingSouls: 3, record: 150, levels: { ...newGame().levels, attack: 572 } });
   const next = prestige(end);
-  assert.equal(next.souls, 1573); // floor(19 ^ 2.5)
-  assert.equal(next.highestStage, 190);
+  assert.ok(next);
+  assert.equal(next.souls, 7);
+  assert.equal(next.pendingSouls, 0);
+  assert.equal(next.record, 150);
   assert.equal(next.stage, 1);
   assert.equal(next.gold, 0);
   assert.equal(next.levels.attack, 0);
   assert.equal(next.zone, CONFIG.startZone);
+
+  assert.equal(prestige({ ...end, pendingSouls: 0 }), null); // sem alma nova, nada a prestigiar
+});
+
+test('cada alma multiplica o dano por 1.9', () => {
+  const start = newGame();
+  assert.ok(Math.abs(dps({ ...start, souls: 2 }) / dps(start) - 1.9 * 1.9) < 1e-9);
+});
+
+test('subida automática: avança sozinha abaixo do recorde e para no recorde', () => {
+  const climbing = { ...newGame(0, 50), levels: strong };
+  assert.equal(isClimbing(climbing), true);
+  assert.equal(autoAdvance(climbing), null); // ainda não matou nesta fase
+
+  const next = autoAdvance(tick(climbing).state);
+  assert.ok(next);
+  assert.equal(next.stage, 2);
+
+  const atRecord = atStage(50, { levels: strong, record: 50, highestCleared: 50 });
+  assert.equal(isClimbing(atRecord), false);
+  assert.equal(autoAdvance(atRecord), null); // daqui pra frente a escolha é do jogador
+});
+
+test('subida automática escolhe a zona mais rica cujo boss cai no tempo', () => {
+  const next = autoAdvance(atStage(40, { record: 100, highestCleared: 40, levels: strong }));
+  assert.ok(next);
+  assert.equal(next.stage, 41);
+  assert.equal(next.zone, 'ruins');
+
+  const weak = atStage(40, { record: 100, highestCleared: 40 }); // dps 2: nenhum boss cai
+  assert.equal(climbZone(weak), 'ravine');
+});
+
+test('subida automática para quando um boss vence o herói e volta ao passar de um boss', () => {
+  const failed = fight(atStage(40, { record: 100 })); // dps 2 não mata o boss da fase 40
+  assert.equal(failed.bossFailed, true);
+  assert.equal(failed.state.climbPaused, true);
+  assert.equal(autoAdvance(failed.state), null);
+
+  const beaten = tick(atStage(40, { record: 100, climbPaused: true, levels: strong }));
+  assert.equal(beaten.killed, true);
+  assert.equal(beaten.state.climbPaused, false);
 });
 
 test('ouro por segundo respeita o limite de um kill por tick', () => {
   // Fase 1: 5 de vida, 2 de dps → 2.5s por kill, 10 de ouro.
   assert.ok(Math.abs(goldPerSecond(newGame()) - 4) < 1e-9);
-
-  const start = newGame();
-  const strong = { ...start, levels: { ...start.levels, attack: 300 } };
-  assert.ok(Math.abs(goldPerSecond(strong) - CONFIG.goldBase / CONFIG.tickSeconds) < 1e-9);
+  assert.ok(Math.abs(goldPerSecond({ ...newGame(), levels: strong }) - CONFIG.goldBase / CONFIG.tickSeconds) < 1e-9);
 });
 
 // Os dois testes abaixo fixam a regra da seção 5.4: 50% do ouro por segundo, até 8h.

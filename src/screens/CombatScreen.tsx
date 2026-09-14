@@ -9,7 +9,7 @@ import { FloatingNumbers } from '../components/FloatingNumbers';
 import type { Hit } from '../components/FloatingNumbers';
 import { ZoneSelect } from '../components/ZoneSelect';
 import {
-  CONFIG, attacksPerSecond, canAdvance, critChance, critMultiplier, dps, goldPerSecond, hitDamage, isBoss,
+  CONFIG, attacksPerSecond, canAdvance, critChance, critMultiplier, dps, goldPerSecond, hitDamage, isBoss, isClimbing,
 } from '../engine/engine';
 import { formatNumber } from '../engine/format';
 import { useGame } from '../game/store';
@@ -115,12 +115,26 @@ function BossNotice() {
 
 function AdvanceButton({ onChooseZone }: { onChooseZone: () => void }) {
   const stage = useGame(s => s.game.stage);
-  const enabled = useGame(s => canAdvance(s.game));
+  const record = useGame(s => s.game.record);
+  const canGo = useGame(s => canAdvance(s.game));
+  const climbing = useGame(s => isClimbing(s.game));
   const onAdvance = useGame(s => s.advance);
   const next = stage + 1;
   // Depois de vencer o boss, avançar passa pela escolha da próxima zona.
   const leavingBoss = isBoss(stage);
+  // Na subida automática o botão só informa até onde o herói vai sozinho.
+  const enabled = canGo && !climbing;
   const textColor = enabled ? colors.bg : colors.muted;
+
+  let label: string = t.advance;
+  let detail = `${t.stage} ${next}${isBoss(next) ? ` · ${t.boss}` : ''}`;
+  if (climbing) {
+    label = t.climbing;
+    detail = t.toStage(record);
+  } else if (leavingBoss) {
+    label = t.chooseZone;
+    detail = t.stages(next, stage + CONFIG.bossEvery);
+  }
 
   return (
     <Pressable
@@ -130,12 +144,8 @@ function AdvanceButton({ onChooseZone }: { onChooseZone: () => void }) {
       accessibilityState={{ disabled: !enabled }}
       style={({ pressed }) => [styles.advance, !enabled && styles.advanceDisabled, pressed && styles.advancePressed]}
     >
-      <Text style={[styles.advanceText, { color: textColor }]}>{leavingBoss ? t.chooseZone : t.advance}</Text>
-      <Text style={[styles.advanceSub, { color: textColor }]}>
-        {leavingBoss
-          ? t.stages(next, stage + CONFIG.bossEvery)
-          : `${t.stage} ${next}${isBoss(next) ? ` · ${t.boss}` : ''}`}
-      </Text>
+      <Text style={[styles.advanceText, { color: textColor }]}>{label}</Text>
+      <Text style={[styles.advanceSub, { color: textColor }]}>{detail}</Text>
       <ChevronsRight size={20} color={textColor} />
     </Pressable>
   );

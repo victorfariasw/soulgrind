@@ -29,11 +29,12 @@ export const CONFIG = {
   critDamagePerLevel: 0.15,
   greedPerLevel: 0.05,
 
-  // Prestígio: a curva ainda quebra por volta da run 4 (problema 1).
+  // Prestígio (problema 1): cada boss vencido pela primeira vez, a partir da fase
+  // 30, rende 1 alma; cada alma multiplica o dano por 1.9. A janela é estreita:
+  // com ×1.8 o jogo para na fase ~1100, com ×2.0 passa do limite dos números.
+  // Qualquer fonte extra de almas tira o teto do jogo — simular antes (problema 3).
   prestigeMinStage: 30,
-  soulsDivisor: 10,
-  soulsExponent: 2.5,
-  soulBonus: 1.008,
+  soulDamageMult: 1.9,
 
   // Progresso offline (seção 5.4): fração do ouro por segundo da fase atual,
   // com teto. Os dois limites existem pra jogar ativo continuar valendo mais.
@@ -52,13 +53,14 @@ export const CONFIG = {
   // Fases 1-10 usam startZone; depois vale a zona escolhida após cada boss.
   // Os modificadores valem só dentro da zona e nunca acumulam.
   // bossHpMult multiplica a vida do inimigo comum da zona; bossTimeout é em segundos.
+  // A ordem importa: a subida automática prefere a primeira zona que dá conta.
   startZone: 'catacombs',
   zones: {
     // Cada zona tem um papel (problema 5): Ruins é a mais rápida, mas o boss foge
     // cedo e ela sozinha não chega ao fim; Ravine é lenta, mas o boss fraco leva
     // mais fundo. No experimento, com 35s em Ruins ela voltava a dominar.
     ruins:     { hpMult: 1.4, goldMult: 2.0, bossHpMult: 2.5, bossTimeout: 30 },
-    catacombs: { hpMult: 1.0, goldMult: 1.0, bossHpMult: 2.5, bossTimeout: 45 }, // alma extra no boss: ainda não simulada (problema 3)
+    catacombs: { hpMult: 1.0, goldMult: 1.0, bossHpMult: 2.5, bossTimeout: 45 }, // neutra: alma extra quebrava a curva (problema 3)
     ravine:    { hpMult: 0.5, goldMult: 0.5, bossHpMult: 1.5, bossTimeout: 45 },
   },
 } as const;
@@ -68,14 +70,16 @@ export const ZONE_IDS = Object.keys(CONFIG.zones) as ZoneId[];
 
 export interface GameState {
   stage: number;
-  highestStage: number;   // maior fase já alcançada, em qualquer run — base das almas
   highestCleared: number; // maior fase vencida nesta run — libera o Advance
+  record: number;         // maior boss já vencido, em qualquer run — base das almas e da subida automática
   gold: number;
-  souls: number;
+  souls: number;          // almas que já valem no dano
+  pendingSouls: number;   // almas desta run: só valem depois de prestigiar
   zone: ZoneId;           // zona do bloco de 10 fases atual
   levels: Record<UpgradeId, number>;
   enemyHp: number;
   bossTimeLeft: number;   // só conta em fase de boss
+  climbPaused: boolean;   // um boss venceu a subida automática; volta quando o herói passar de um boss
 }
 
 // O que define o poder do herói. Qualquer GameState serve; a tela de upgrades
@@ -95,11 +99,14 @@ export interface OfflineResult {
   gold: number;
 }
 
-export function newGame(souls = 0): GameState {
+export function newGame(souls = 0, record = 0): GameState {
   const levels = {} as Record<UpgradeId, number>;
   for (const id of UPGRADE_IDS) levels[id] = 0;
   return enterStage(
-    { stage: 1, highestStage: 1, highestCleared: 0, gold: 0, souls, zone: CONFIG.startZone, levels, enemyHp: 0, bossTimeLeft: 0 },
+    {
+      stage: 1, highestCleared: 0, record, gold: 0, souls, pendingSouls: 0, zone: CONFIG.startZone,
+      levels, enemyHp: 0, bossTimeLeft: 0, climbPaused: false,
+    },
     1,
     CONFIG.startZone,
   );
@@ -151,8 +158,8 @@ export function critMultiplier(stats: Stats): number {
   return CONFIG.baseCritDamage + stats.levels.critDamage * CONFIG.critDamagePerLevel;
 }
 
-export function soulMultiplier(stats: Stats): number {
-  return Math.pow(CONFIG.soulBonus, stats.souls);
+export function soulMultiplier(stats: Pick<GameState, 'souls'>): number {
+  return Math.pow(CONFIG.soulDamageMult, stats.souls);
 }
 
 // Dano de um golpe sem crítico. O combate usa só a média (dps); golpes
@@ -178,9 +185,9 @@ export function goldPerSecond(state: GameState): number {
   return (enemyGold(state.stage, state.zone) * goldMultiplier(state)) / (ticks * CONFIG.tickSeconds);
 }
 
-export function soulsForStage(stage: number): number {
-  if (stage < CONFIG.prestigeMinStage) return 0;
-  return Math.floor(Math.pow(stage / CONFIG.soulsDivisor, CONFIG.soulsExponent));
+// Próximo boss que rende alma, dado o recorde.
+export function nextSoulStage(record: number): number {
+  return Math.max(record + CONFIG.bossEvery, CONFIG.prestigeMinStage);
 }
 
 export function enterStage(state: GameState, stage: number, zone: ZoneId): GameState {
@@ -189,21 +196,33 @@ export function enterStage(state: GameState, stage: number, zone: ZoneId): GameS
 
 // Avança o combate `dt` segundos. Chamar num setInterval de CONFIG.tickSeconds,
 // nunca por frame. No máximo um kill por tick: o dano excedente se perde.
-// O inimigo morto renasce na mesma fase — avançar é sempre decisão do jogador.
+// O inimigo morto renasce na mesma fase — avançar é sempre decisão do jogador,
+// exceto na subida automática (autoAdvance), que o app chama depois do kill.
 export function tick(state: GameState, dt: number = CONFIG.tickSeconds): TickResult {
   const hp = state.enemyHp - dps(state) * dt;
+  const boss = isBoss(state.stage);
 
   if (hp <= 0) {
     const goldGained = enemyGold(state.stage, state.zone) * goldMultiplier(state);
-    const paid = { ...state, gold: state.gold + goldGained, highestCleared: Math.max(state.highestCleared, state.stage) };
+    // Boss vencido pela primeira vez: novo recorde e, a partir da fase 30, uma alma.
+    const newBoss = boss && state.stage > state.record;
+    const paid: GameState = {
+      ...state,
+      gold: state.gold + goldGained,
+      highestCleared: Math.max(state.highestCleared, state.stage),
+      record: newBoss ? state.stage : state.record,
+      pendingSouls: state.pendingSouls + (newBoss && state.stage >= CONFIG.prestigeMinStage ? 1 : 0),
+      climbPaused: boss ? false : state.climbPaused,
+    };
     return { state: enterStage(paid, state.stage, state.zone), killed: true, goldGained, bossFailed: false };
   }
 
-  if (isBoss(state.stage)) {
+  if (boss) {
     const bossTimeLeft = state.bossTimeLeft - dt;
     if (bossTimeLeft <= 0) {
       // Não matou a tempo: volta uma fase, que é sempre do mesmo bloco de zona.
-      return { state: enterStage(state, state.stage - 1, state.zone), killed: false, goldGained: 0, bossFailed: true };
+      const fled = enterStage({ ...state, climbPaused: true }, state.stage - 1, state.zone);
+      return { state: fled, killed: false, goldGained: 0, bossFailed: true };
     }
     return { state: { ...state, enemyHp: hp, bossTimeLeft }, killed: false, goldGained: 0, bossFailed: false };
   }
@@ -223,8 +242,26 @@ export function advance(state: GameState, nextZone?: ZoneId): GameState | null {
     if (!nextZone) throw new Error('advance: leaving a boss stage requires the next zone');
     zone = nextZone;
   }
-  const stage = state.stage + 1;
-  return enterStage({ ...state, highestStage: Math.max(state.highestStage, stage) }, stage, zone);
+  return enterStage(state, state.stage + 1, zone);
+}
+
+// Subida automática (exceção à seção 3): depois do prestígio, fases abaixo do
+// recorde não têm decisão nova, então avançam sozinhas. Para quando um boss vence
+// o herói, até ele passar de um boss por conta própria.
+export function isClimbing(state: GameState): boolean {
+  return state.stage < state.record && !state.climbPaused;
+}
+
+// Zona da subida: a primeira de CONFIG.zones (a mais rica) cujo boss do próximo
+// bloco cai no tempo com o dps atual.
+export function climbZone(state: GameState): ZoneId {
+  const bossStage = state.stage + CONFIG.bossEvery;
+  return ZONE_IDS.find(z => enemyMaxHp(bossStage, z) / dps(state) <= bossTimeout(z)) ?? 'ravine';
+}
+
+export function autoAdvance(state: GameState): GameState | null {
+  if (!isClimbing(state)) return null;
+  return advance(state, isBoss(state.stage) ? climbZone(state) : undefined);
 }
 
 // Compra `count` níveis de uma vez, ou nada: sem ouro para todos, ou passando
@@ -237,11 +274,11 @@ export function buy(state: GameState, id: UpgradeId, count = 1): GameState | nul
   return { ...state, gold: state.gold - cost, levels: { ...state.levels, [id]: level + count } };
 }
 
-// Zera fase, ouro, upgrades e zona. Mantém almas e a maior fase histórica.
-// Almas não somam entre runs: valem as da melhor fase já alcançada.
-export function prestige(state: GameState): GameState {
-  const souls = Math.max(state.souls, soulsForStage(state.highestStage));
-  return { ...newGame(souls), highestStage: state.highestStage };
+// Converte as almas da run: zera fase, ouro, upgrades e zona; mantém almas e recorde.
+// Sem alma nova na run não há o que prestigiar.
+export function prestige(state: GameState): GameState | null {
+  if (state.pendingSouls <= 0) return null;
+  return newGame(state.souls + state.pendingSouls, state.record);
 }
 
 // Ouro por segundo que o herói faz sozinho. Preso num boss que não mata a tempo,

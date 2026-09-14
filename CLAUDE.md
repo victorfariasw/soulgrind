@@ -57,6 +57,11 @@ nenhuma decisão. Com avanço manual, a run passou a durar ~4,6 horas e a tensã
 entre farmar (seguro, lento) e avançar (mais ouro por kill, risco de travar) virou
 a mecânica central.
 
+**Exceção: subida automática.** Depois do prestígio, fases abaixo do recorde não
+têm decisão nova, então avançam sozinhas (zona escolhida pelo tempo estimado do
+boss). O Advance manual volta a valer a partir do recorde. Se um boss vence o herói
+na subida, ela pausa até o jogador passar de um boss por conta própria.
+
 ---
 
 ## 4. Números calibrados
@@ -81,7 +86,7 @@ dano       = 2 * 1.08^nivelAttack          // ÚNICO upgrade multiplicativo
 velocidade = 1 + nivelSpeed * 0.05         // aditivo
 chanceCrit = min(0.5, nivelCritChance * 0.01)
 multCrit   = 1.5 + nivelCritDamage * 0.15  // aditivo
-bonusAlmas = 1.008^almas
+bonusAlmas = 1.9^almas
 
 dps = dano * velocidade * (1 + chanceCrit * (multCrit - 1)) * bonusAlmas
 multOuro = 1 + nivelGreed * 0.05           // aditivo
@@ -109,11 +114,27 @@ custo(id, nivel) = custoBase * custoGrowth^nivel
 ### Prestígio
 
 ```
-almas = floor((maiorFase / 10) ^ 2.5)   // só a partir da fase 30
-bônus = 1.008 ^ almas                    // multiplicador de dano
+almas: +1 por boss vencido pela primeira vez (acima do recorde), a partir da fase 30
+bônus = 1.9 ^ almas    // multiplicador de dano
 ```
 
-Ao prestigiar: zera ouro, upgrades e fase. Mantém almas e maior fase histórica.
+As almas da run ficam pendentes e só valem depois do prestígio. Ao prestigiar: zera
+ouro, upgrades e fase. Mantém almas e recorde (maior boss já vencido).
+
+Por que assim (experimento do problema 1): almas que acumulam a cada run criam um
+loop de prestígio a cada ~15s, então precisam vir de progresso novo. E o bônus tem
+que crescer no ritmo da dificuldade: perto do muro cada fase deixa o kill só ~1,08×
+mais lento, então um multiplicador M empurra o muro ~13·ln(M) fases.
+
+| Bônus por alma | Fase 1000 | Fim do jogo |
+|---|---|---|
+| ×1.8 (experimento) | ~14h | fase 1100, ~41h |
+| **×1.9** | **~3,7h** | **fase 1780, ~64h** |
+| ×2.0 (experimento) | ~3h | passa de 2400 (limite dos números) em ~8h |
+
+Com ×1.9, o jogador que prestigia quando trava faz runs de 20–30 min no começo e
+de 1–4h no fim (`npm run sim`). Em sessões de 30 min + 8h fora: fase 1000 em 2,1
+dias e fim do jogo na fase ~2120 depois de ~4 meses.
 
 ### Zonas
 
@@ -124,7 +145,7 @@ compõem exponencialmente e destroem a curva.
 | Zona | Vida | Ouro | Vida do boss | Tempo do boss | Extra |
 |---|---|---|---|---|---|
 | Ruins | ×1.4 | ×2.0 | ×2.5 | 30s | — |
-| Catacombs | ×1.0 | ×1.0 | ×2.5 | 45s | alma extra no boss (não implementada, problema 3) |
+| Catacombs | ×1.0 | ×1.0 | ×2.5 | 45s | — (alma extra descartada, problema 3) |
 | Ravine | ×0.5 | ×0.5 | ×1.5 | 45s | — |
 
 A vida do boss multiplica a vida do inimigo comum da zona. As fases 1–10 são
@@ -256,6 +277,7 @@ Três, mais o modal de offline.
 
 **Prestige**
 - Quantas almas ganharia agora, o que fazem, botão com confirmação
+- Feito em `src/screens/PrestigeScreen.tsx`; o topo mostra as almas pendentes ("0 +13")
 
 **Zone select** — aparece após cada boss, 3 cartas.
 
@@ -278,9 +300,9 @@ Um único objeto JSON, salvo a cada 10s e ao perder foco.
 
 ```ts
 interface SaveFile {
-  version: 1;        // suba ao mudar o formato e converta a versão anterior
+  version: 2;        // suba ao mudar o formato e converta a versão anterior
   savedAt: number;   // ms — base do progresso offline
-  game: { stage; highestStage; highestCleared; gold; souls; zone; levels };
+  game: { stage; highestCleared; record; gold; souls; pendingSouls; zone; levels };
 }
 ```
 
@@ -289,6 +311,8 @@ gravação no AsyncStorage em `src/game/persistence.ts`. A vida do inimigo e o
 tempo do boss não são salvos: ao abrir, o inimigo volta cheio. As fases
 restantes na zona saem de `stage`. Save inválido é descartado e o jogo começa
 do zero — nunca grave antes de ler, ou o save é sobrescrito por um jogo novo.
+Saves v1 (antes do prestígio) são convertidos: o recorde vira o último boss vencido
+e as almas desses bosses ficam pendentes.
 
 ### Números grandes
 
@@ -314,22 +338,27 @@ Se um dia houver versão PT-BR, é criar um segundo objeto.
 
 ## 8. Problemas em aberto
 
-Estes são conhecidos e ainda não resolvidos. Nenhum bloqueia começar a codar.
+Problemas conhecidos, com o estado de cada um. Os resolvidos ficam aqui pelo
+histórico das decisões.
 
-**1. A curva de prestígio acelera e quebra.** Com os valores atuais, cada run vai
-muito mais longe que a anterior (200 → 420 → 1500) e na run 4 o jogo perde o
-controle (fase 2000 em 3 minutos). O oposto também é fácil de causar: baixando o
-bônus, todas as runs empacam na mesma fase. A janela é estreita. Caminho mais
-provável: fazer `hpGrowth` acelerar com a fase (ex. `1.32 + fase * 0.0004`) em vez
-de ser constante. **Simular antes de codar a tela de prestígio.**
+**1. Prestígio: resolvido, com ressalvas.** A fórmula antiga explodia (fase 2000 na
+run 4), e acelerar o `hpGrowth` só atrasava o problema em uma run. O desenho atual
+está na seção 4. Ressalvas: (a) a janela é estreita — ×1.8 para na fase 1100, ×2.0
+passa do limite dos números; (b) quem prestigia a cada minuto termina o jogo em ~20
+min de jogo — hoje o freio é recomprar os upgrades a cada run, então **nada de
+compra automática de upgrades sem simular esse jogador**; (c) o jogo tem fim (fase
+~1780 jogando sem parar, ~2120 em sessões), abaixo do limite de `Number`.
 
 **2. Os marcos de arma não estão calibrados.** O jogador chega ao nível 583 de
 Attack numa run. Marcos até 200 seriam todos desbloqueados antes da metade. O
 espaçamento precisa sair da simulação: ~12 a 15 marcos até ~650, com intervalos
 crescentes (1, 10, 25, 50, 90, 140, 200, 270, 350, 440, 540, 650).
 
-**3. A alma extra das Catacombs não foi simulada.** É o único modificador de zona
-que afeta o meta-progresso e pode interagir mal com o problema 1.
+**3. Alma extra das Catacombs: descartada.** Com o prestígio atual, 2 almas por boss
+em Catacombs levavam à fase 2400 em 1,9h, e 1,5 alma em 2,6h; mesmo sem o jogador
+preferir Catacombs, o teto do jogo sumia. Catacombs segue neutra e ainda precisa de
+um papel dentro da zona (ex.: limite de boss maior), a simular. **Nenhuma fonte nova
+de almas sem simular.**
 
 **4. Anúncio recompensado não está na curva.** Se entrar 2× de ouro por anúncio,
 um jogador que sempre assiste tem o dobro da economia simulada. Simular esse
@@ -338,17 +367,17 @@ jogador antes de ligar o rewarded.
 **5. Zonas: mitigado, não resolvido.** Ruins dominava todas as estratégias. O
 desenho atual (boss de Ruins foge em 30s, boss de Ravine com ×1.5) dá um papel a
 cada zona — ver seção 4. Ressalvas: (a) a janela é estreita: no experimento, com
-35s em Ruins ela voltava a dominar; (b) Catacombs quase nunca é escolhida — o
-papel dela deve vir da alma extra (problema 3); (c) o fim da run é um grind de
-horas (180 → 200) que o prestígio deveria cortar, então a métrica certa para as
-zonas é **almas por hora**, a recalibrar junto com o problema 1.
+35s em Ruins ela voltava a dominar; (b) Catacombs quase nunca é escolhida e a alma
+extra foi descartada (problema 3), então o papel dela segue em aberto; (c) com o
+prestígio o jogador sai antes do grind do fim da run, então a métrica para rever
+as zonas é **almas por hora**.
 
-**6. O offline encurta muito a primeira run.** Com 15 minutos de jogo e 8h fora
-por sessão, o jogador chega à fase 180 com 45 minutos de jogo ativo, em 1 dia —
-contra 3,1h jogando sem parar. A regra da seção 5.4 se mantém (por hora, jogar
-ativo rende mais), mas a primeira run acaba rápido pra quem joga pouco. Rever junto
-com o prestígio (problema 1) e antes do anúncio recompensado (problema 4), que
-dobraria esse ganho.
+**6. Offline: resolvido pelo prestígio.** Sem prestígio, 15 min de jogo por sessão
+levavam à fase 180 em 1 dia. Com prestígio, o jogo inteiro dura: 30 min + 8h fora
+chega à fase 1000 em 2,1 dias e ao fim (~2120) em ~4 meses; no experimento, 15 min
+por sessão levavam ~5 meses. A primeira run continua rápida pra quem joga pouco.
+Mantidos 50% e 8h. Rever antes do anúncio recompensado (problema 4), que dobraria
+o ganho offline.
 
 ---
 
@@ -393,6 +422,7 @@ Cada marco é entregável e testável sozinho.
 6. **Progresso offline + modal**
    Feito em `src/components/AwayModal.tsx` e `applyOffline` no motor.
 7. **Prestígio** (resolver o problema 1 antes)
+   Feito em `src/screens/PrestigeScreen.tsx`, com a subida automática da seção 3.
 8. **Armas cosméticas + inimigos procedurais**
 9. **Polimento** — haptics, formatação de números, ícone, splash
 10. **Build APK** — EAS Build, testar em dispositivo físico, publicar
@@ -415,6 +445,10 @@ praticamente igual (4,5h → 4,0h), e o número de kills quase dobrou.
 
 **O limiar de farm não é constante do jogo.** É comportamento do jogador,
 existe só na simulação para modelar alguém razoável. Não implemente isso no app.
+
+**Almas são o número mais sensível do jogo.** Com ×1.9 por alma, qualquer fonte
+extra (zona, conquista, anúncio) ou compra automática de upgrades muda o fim do jogo
+em centenas de fases. Simule antes (problemas 1 e 3).
 
 **O motor é puro.** `src/engine/` não importa React nem tem side effect. Mantenha
 assim: o mesmo código roda no app e na simulação. A pasta `sim/` fica fora do
@@ -444,6 +478,7 @@ adjetivo + substantivo funciona sempre.
   e credita o tempo fora do app
 - `src/game/useAppActive.ts` — pausa o loop enquanto o app está em segundo plano
 - `src/components/AwayModal.tsx` — modal "You were away…"
+- `src/screens/PrestigeScreen.tsx` — almas da run, efeito e prestígio com confirmação
 - `src/strings.ts` — todas as strings do jogo; `src/theme.ts` — cores
 - Comandos: `npm start` (Expo Go ou web), `npm run sim`, `npm test`, `npm run typecheck`
 
