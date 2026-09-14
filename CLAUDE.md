@@ -31,10 +31,10 @@ deliberada, não uma limitação temporária — ver seção 9.
 
 ## 2. Stack
 
-- **Expo + React Native + TypeScript**
-- Estado: Zustand ou `useReducer` — não precisa de engine de jogo
+- **Expo SDK 57 + React Native 0.86 + TypeScript 6**
+- Estado: Zustand (`src/game/store.ts`) — não precisa de engine de jogo
 - Animação: `react-native-reanimated` (roda na thread de UI, não disputa com o loop)
-- Ícones: `@expo/vector-icons` (Tabler) ou `lucide-react-native`
+- Ícones: `lucide-react-native` (o `@expo/vector-icons` não traz Tabler)
 - Persistência: AsyncStorage ou MMKV, um único blob JSON
 - Build: EAS Build → APK
 - Sem backend, sem conta, sem rede
@@ -349,6 +349,7 @@ Cada marco é entregável e testável sozinho.
 2. **Simulação de balanceamento** — já feita, ver `sim/simulate.ts`. Rodar de novo
    (`npm run sim`) ao mexer em qualquer constante.
 3. **Tela de Combat** — barra de vida, números flutuantes, botão Advance
+   Feito em `src/screens/CombatScreen.tsx`. Até o marco 5, sair do boss mantém a zona.
 4. **Tela de Upgrades + save local**
 5. **Zonas + tela de seleção**
 6. **Progresso offline + modal**
@@ -392,7 +393,18 @@ adjetivo + substantivo funciona sempre.
 - `src/engine/engine.ts` — motor puro, com as constantes calibradas em `CONFIG`
 - `src/engine/format.ts` — números grandes (K, M, B, T, aa, ab…)
 - `sim/simulate.ts` — simulador de balanceamento; dirige o motor tick a tick
-- Comandos: `npm run sim`, `npm test`, `npm run typecheck`
+- `src/game/store.ts` — estado do app (Zustand) em volta do motor
+- `src/game/useGameLoop.ts` — loop de tick fixo de 100ms
+- `src/screens/CombatScreen.tsx` e `src/components/` — tela de Combat
+- `src/strings.ts` — todas as strings do jogo; `src/theme.ts` — cores
+- Comandos: `npm start` (Expo Go ou web), `npm run sim`, `npm test`, `npm run typecheck`
+
+Em desenvolvimento, `soulgrind.getState()` e `soulgrind.setState()` ficam
+disponíveis no console do navegador (`npm run web`), para testar situações
+difíceis de alcançar jogando, como um boss.
+
+Os golpes e críticos mostrados na tela são cosméticos: o combate usa só o dps
+médio do motor. Não leve sorteio de crítico para o motor sem simular.
 
 Os arquivos originais (`motor-idle.ts`, `simulacao-zonas.js`) estão no primeiro
 commit do git, caso precise consultar.

@@ -106,18 +106,47 @@ export function upgradeCost(id: UpgradeId, level: number): number {
   return u.baseCost * Math.pow(u.costGrowth, level);
 }
 
+function attackDamage(state: GameState): number {
+  return CONFIG.baseDamage * Math.pow(CONFIG.attackMult, state.levels.attack);
+}
+
+export function attacksPerSecond(state: GameState): number {
+  return CONFIG.baseSpeed + state.levels.speed * CONFIG.speedPerLevel;
+}
+
+export function critChance(state: GameState): number {
+  return Math.min(state.levels.critChance, CONFIG.upgrades.critChance.maxLevel) * CONFIG.critChancePerLevel;
+}
+
+export function critMultiplier(state: GameState): number {
+  return CONFIG.baseCritDamage + state.levels.critDamage * CONFIG.critDamagePerLevel;
+}
+
+export function soulMultiplier(state: GameState): number {
+  return Math.pow(CONFIG.soulBonus, state.souls);
+}
+
+// Dano de um golpe sem crítico. O combate usa só a média (dps); golpes
+// individuais existem apenas na tela, para os números flutuantes.
+export function hitDamage(state: GameState): number {
+  return attackDamage(state) * soulMultiplier(state);
+}
+
+// Mesma ordem de multiplicação de sempre — mudar a ordem muda os últimos bits
+// e pode alterar desempates do simulador.
 export function dps(state: GameState): number {
-  const { levels } = state;
-  const damage = CONFIG.baseDamage * Math.pow(CONFIG.attackMult, levels.attack);
-  const speed = CONFIG.baseSpeed + levels.speed * CONFIG.speedPerLevel;
-  const critChance = Math.min(levels.critChance, CONFIG.upgrades.critChance.maxLevel) * CONFIG.critChancePerLevel;
-  const critDamage = CONFIG.baseCritDamage + levels.critDamage * CONFIG.critDamagePerLevel;
-  const soulBonus = Math.pow(CONFIG.soulBonus, state.souls);
-  return damage * speed * (1 + critChance * (critDamage - 1)) * soulBonus;
+  return attackDamage(state) * attacksPerSecond(state) * (1 + critChance(state) * (critMultiplier(state) - 1)) * soulMultiplier(state);
 }
 
 export function goldMultiplier(state: GameState): number {
   return 1 + state.levels.greed * CONFIG.greedPerLevel;
+}
+
+// Ouro por segundo farmando o inimigo atual. Um kill leva um número inteiro de
+// ticks, então matar mais rápido que um tick não rende mais.
+export function goldPerSecond(state: GameState): number {
+  const ticks = Math.max(1, Math.ceil(enemyMaxHp(state.stage, state.zone) / dps(state) / CONFIG.tickSeconds - 1e-9));
+  return (enemyGold(state.stage, state.zone) * goldMultiplier(state)) / (ticks * CONFIG.tickSeconds);
 }
 
 export function soulsForStage(stage: number): number {

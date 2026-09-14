@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  CONFIG, advance, buy, canAdvance, enemyGold, enemyMaxHp, newGame, prestige, tick,
+  CONFIG, advance, buy, canAdvance, enemyGold, enemyMaxHp, goldPerSecond, newGame, prestige, tick,
 } from './engine.ts';
 import type { GameState, TickResult } from './engine.ts';
 
@@ -91,4 +91,13 @@ test('prestígio zera a run e guarda almas e maior fase', () => {
   assert.equal(next.gold, 0);
   assert.equal(next.levels.attack, 0);
   assert.equal(next.zone, CONFIG.startZone);
+});
+
+test('ouro por segundo respeita o limite de um kill por tick', () => {
+  // Fase 1: 5 de vida, 2 de dps → 2.5s por kill, 10 de ouro.
+  assert.ok(Math.abs(goldPerSecond(newGame()) - 4) < 1e-9);
+
+  const start = newGame();
+  const strong = { ...start, levels: { ...start.levels, attack: 300 } };
+  assert.ok(Math.abs(goldPerSecond(strong) - CONFIG.goldBase / CONFIG.tickSeconds) < 1e-9);
 });
