@@ -2,19 +2,31 @@
 // GameState e contamos os eventos que a tela precisa animar.
 import { create } from 'zustand';
 
-import { advance, buy, newGame, tick } from '../engine/engine';
+import { advance, applyOffline, buy, newGame, tick } from '../engine/engine';
 import type { GameState, UpgradeId, ZoneId } from '../engine/engine';
+
+// Ausências menores que isso rendem ouro, mas não abrem o modal — senão ele
+// apareceria a cada troca rápida de app.
+const MIN_AWAY_REPORT_SECONDS = 60;
+
+interface AwayReport {
+  seconds: number;
+  gold: number;
+}
 
 interface GameStore {
   game: GameState;
   hydrated: boolean; // save local já lido — o loop e a tela só começam depois disso
   kills: number;     // kills desde que o app abriu — troca a key do inimigo pra animar a entrada
   bossFails: number; // bosses que fugiram — dispara o aviso de volta de fase
+  awayReport: AwayReport | null; // modal "You were away…" pendente
   hydrate: (saved: GameState | null) => void;
   step: (ticks: number) => void;
   // Saindo de um boss, `zone` é obrigatória (vem da tela de 3 cartas).
   advance: (zone?: ZoneId) => void;
   buy: (id: UpgradeId, count: number) => void;
+  returnFromAway: (awaySeconds: number) => void;
+  dismissAwayReport: () => void;
 }
 
 export const useGame = create<GameStore>()((set, get) => ({
@@ -22,6 +34,7 @@ export const useGame = create<GameStore>()((set, get) => ({
   hydrated: false,
   kills: 0,
   bossFails: 0,
+  awayReport: null,
 
   hydrate: saved => set({ game: saved ?? newGame(), hydrated: true }),
 
@@ -45,6 +58,19 @@ export const useGame = create<GameStore>()((set, get) => ({
     const next = buy(get().game, id, count);
     if (next) set({ game: next });
   },
+
+  // O ouro entra na hora; o modal é só o aviso.
+  returnFromAway: awaySeconds => {
+    const { game, awayReport } = get();
+    const r = applyOffline(game, awaySeconds);
+    const report = r.seconds >= MIN_AWAY_REPORT_SECONDS && r.gold > 0
+      // Duas saídas sem fechar o modal somam no mesmo aviso.
+      ? { seconds: (awayReport?.seconds ?? 0) + r.seconds, gold: (awayReport?.gold ?? 0) + r.gold }
+      : awayReport;
+    set({ game: r.state, awayReport: report });
+  },
+
+  dismissAwayReport: () => set({ awayReport: null }),
 }));
 
 // Só em desenvolvimento: `soulgrind.getState()` / `setState()` no console do navegador.

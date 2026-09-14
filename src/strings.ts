@@ -49,4 +49,9 @@ export const t = {
     bossTimer: 'Boss timer',
   },
   bossAtYourDps: (stage: number) => `Boss ${stage} at your DPS:`,
+
+  awayFor: (duration: string) => `You were away ${duration}.`,
+  heroGathered: 'Your hero gathered',
+  offlineCap: (hours: number) => `Offline gains stop after ${hours}h.`,
+  collect: 'Collect',
 } as const;

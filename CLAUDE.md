@@ -154,6 +154,15 @@ em cada zona e fica com a primeira que não trava (ordem Ruins, Catacombs, Ravin
 Nenhuma estratégia fixa domina: Ruins é a mais rápida mas para na 180, Ravine é
 a única que chega à 200 sozinha e alternar é o caminho mais rápido até a 180.
 
+Com progresso offline (8h a 50%), o mesmo jogador esperto chega à fase 180 com:
+
+| Sessões | Jogo ativo até a 180 | Dias |
+|---|---|---|
+| Sempre ativo | 3,1h | — |
+| 60 min + 8h fora | 2,0h | 0,8 |
+| 30 min + 8h fora | 1,2h | 0,7 |
+| 15 min + 8h fora | 45 min | 1,0 |
+
 ---
 
 ## 5. Sistemas
@@ -219,6 +228,13 @@ Modal ao abrir: "You were away 3h12m. Your hero gathered 4.2K gold."
 Esse modal é uma das partes mais importantes do jogo — é o que faz a pessoa
 reabrir o app. O teto de 8h e a eficiência de 50% existem pra que jogar ativo
 continue valendo mais que não jogar.
+
+Implementado em `applyOffline` (motor) e `src/game/persistence.ts`. O ganho vale
+ao abrir o app e ao voltar do segundo plano; fora do app o loop fica parado, pra
+o tempo não contar duas vezes. Preso num boss que não mata a tempo, conta a fase
+anterior (é onde o jogo o deixaria). Ausências abaixo de 1 minuto rendem ouro sem
+abrir o modal. O save é regravado logo depois de aplicar o ganho — senão fechar o
+app antes do próximo save repetiria o crédito.
 
 ---
 
@@ -327,6 +343,13 @@ papel dela deve vir da alma extra (problema 3); (c) o fim da run é um grind de
 horas (180 → 200) que o prestígio deveria cortar, então a métrica certa para as
 zonas é **almas por hora**, a recalibrar junto com o problema 1.
 
+**6. O offline encurta muito a primeira run.** Com 15 minutos de jogo e 8h fora
+por sessão, o jogador chega à fase 180 com 45 minutos de jogo ativo, em 1 dia —
+contra 3,1h jogando sem parar. A regra da seção 5.4 se mantém (por hora, jogar
+ativo rende mais), mas a primeira run acaba rápido pra quem joga pouco. Rever junto
+com o prestígio (problema 1) e antes do anúncio recompensado (problema 4), que
+dobraria esse ganho.
+
 ---
 
 ## 9. Decisões recusadas
@@ -368,6 +391,7 @@ Cada marco é entregável e testável sozinho.
 5. **Zonas + tela de seleção**
    Feito em `src/components/ZoneSelect.tsx`, com o desenho de zonas do problema 5.
 6. **Progresso offline + modal**
+   Feito em `src/components/AwayModal.tsx` e `applyOffline` no motor.
 7. **Prestígio** (resolver o problema 1 antes)
 8. **Armas cosméticas + inimigos procedurais**
 9. **Polimento** — haptics, formatação de números, ícone, splash
@@ -416,7 +440,10 @@ adjetivo + substantivo funciona sempre.
   estimado do próximo boss no dps atual
 - `src/components/TopBar.tsx` e `TabBar.tsx` — moldura comum às telas
 - `src/engine/save.ts` — formato do save e validação (puro, testado)
-- `src/game/persistence.ts` — lê o save ao abrir; grava a cada 10s e ao perder foco
+- `src/game/persistence.ts` — lê o save ao abrir, grava a cada 10s e ao perder foco,
+  e credita o tempo fora do app
+- `src/game/useAppActive.ts` — pausa o loop enquanto o app está em segundo plano
+- `src/components/AwayModal.tsx` — modal "You were away…"
 - `src/strings.ts` — todas as strings do jogo; `src/theme.ts` — cores
 - Comandos: `npm start` (Expo Go ou web), `npm run sim`, `npm test`, `npm run typecheck`
 

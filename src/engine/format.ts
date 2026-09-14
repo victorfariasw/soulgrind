@@ -32,3 +32,12 @@ export function formatNumber(n: number, decimals = 0): string {
 
   return truncate(mantissa, 2) + suffix(group);
 }
+
+// Tempo fora do app: "45m", "3h12m", "8h".
+export function formatDuration(seconds: number): string {
+  const totalMinutes = Math.floor(seconds / 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours === 0) return `${minutes}m`;
+  return minutes === 0 ? `${hours}h` : `${hours}h${String(minutes).padStart(2, '0')}m`;
+}

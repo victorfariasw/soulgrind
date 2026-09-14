@@ -2,7 +2,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  CONFIG, advance, bulkCost, buy, canAdvance, enemyGold, enemyMaxHp, enterStage, goldPerSecond, newGame, prestige, tick,
+  CONFIG, advance, applyOffline, bulkCost, buy, canAdvance, enemyGold, enemyMaxHp, enterStage, goldPerSecond, newGame,
+  prestige, tick,
 } from './engine.ts';
 import type { GameState, TickResult } from './engine.ts';
 
@@ -136,4 +137,28 @@ test('ouro por segundo respeita o limite de um kill por tick', () => {
   const start = newGame();
   const strong = { ...start, levels: { ...start.levels, attack: 300 } };
   assert.ok(Math.abs(goldPerSecond(strong) - CONFIG.goldBase / CONFIG.tickSeconds) < 1e-9);
+});
+
+// Os dois testes abaixo fixam a regra da seção 5.4: 50% do ouro por segundo, até 8h.
+test('offline rende metade do ouro por segundo da fase, com teto de 8h', () => {
+  const start = newGame(); // fase 1: 4 de ouro por segundo
+  const short = applyOffline(start, 100);
+  assert.equal(short.seconds, 100);
+  assert.ok(Math.abs(short.gold - 100 * 0.5 * 4) < 1e-9);
+  assert.equal(short.state.gold, short.gold);
+
+  const long = applyOffline(start, 3 * 24 * 3600);
+  assert.equal(long.seconds, 8 * 3600);
+  assert.ok(Math.abs(long.gold - 8 * 3600 * 0.5 * 4) < 1e-6);
+
+  assert.equal(applyOffline(start, -50).gold, 0); // relógio do aparelho voltou no tempo
+  assert.equal(applyOffline(start, NaN).gold, 0);
+});
+
+test('offline preso num boss que não mata a tempo conta a fase anterior', () => {
+  const stuck = atStage(10); // dps 2 não mata o boss da fase 10 em 45s
+  const expected = 60 * 0.5 * goldPerSecond(enterStage(stuck, 9, CONFIG.startZone));
+  const r = applyOffline(stuck, 60);
+  assert.ok(Math.abs(r.gold - expected) < 1e-9);
+  assert.equal(r.state.stage, 10);
 });

@@ -35,6 +35,11 @@ export const CONFIG = {
   soulsExponent: 2.5,
   soulBonus: 1.008,
 
+  // Progresso offline (seção 5.4): fração do ouro por segundo da fase atual,
+  // com teto. Os dois limites existem pra jogar ativo continuar valendo mais.
+  offlineEfficiency: 0.5,
+  offlineMaxSeconds: 8 * 3600,
+
   // Crit Chance chega a 50% no nível 50; comprar além disso não faz nada.
   upgrades: {
     attack:     { baseCost: 5,  costGrowth: 1.085, maxLevel: Infinity },
@@ -82,6 +87,12 @@ export interface TickResult {
   killed: boolean;
   goldGained: number;
   bossFailed: boolean;
+}
+
+export interface OfflineResult {
+  state: GameState;
+  seconds: number; // tempo que contou, já com o teto
+  gold: number;
 }
 
 export function newGame(souls = 0): GameState {
@@ -231,4 +242,19 @@ export function buy(state: GameState, id: UpgradeId, count = 1): GameState | nul
 export function prestige(state: GameState): GameState {
   const souls = Math.max(state.souls, soulsForStage(state.highestStage));
   return { ...newGame(souls), highestStage: state.highestStage };
+}
+
+// Ouro por segundo que o herói faz sozinho. Preso num boss que não mata a tempo,
+// o jogo voltaria uma fase — então conta a fase anterior.
+export function idleGoldPerSecond(state: GameState): number {
+  const stuck = isBoss(state.stage) && enemyMaxHp(state.stage, state.zone) / dps(state) > bossTimeout(state.zone);
+  return goldPerSecond(stuck ? enterStage(state, state.stage - 1, state.zone) : state);
+}
+
+// Tempo fora do app vira só ouro: não compra upgrades nem avança de fase.
+// Tempo negativo (relógio do aparelho voltou) ou inválido não rende nada.
+export function applyOffline(state: GameState, awaySeconds: number): OfflineResult {
+  const seconds = Number.isFinite(awaySeconds) ? Math.min(Math.max(0, awaySeconds), CONFIG.offlineMaxSeconds) : 0;
+  const gold = seconds * CONFIG.offlineEfficiency * idleGoldPerSecond(state);
+  return { state: { ...state, gold: state.gold + gold }, seconds, gold };
 }

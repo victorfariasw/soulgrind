@@ -1,7 +1,15 @@
 // Rodar: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { formatNumber } from './format.ts';
+import { formatDuration, formatNumber } from './format.ts';
+
+test('duração fora do app em horas e minutos', () => {
+  assert.equal(formatDuration(59), '0m');
+  assert.equal(formatDuration(45 * 60), '45m');
+  assert.equal(formatDuration(3 * 3600 + 12 * 60 + 40), '3h12m');
+  assert.equal(formatDuration(2 * 3600 + 5 * 60), '2h05m');
+  assert.equal(formatDuration(8 * 3600), '8h');
+});
 
 test('abaixo de mil mostra inteiro truncado', () => {
   assert.equal(formatNumber(0), '0');

@@ -3,10 +3,10 @@
 //
 // Dirige o motor real tick a tick, então mede o mesmo código que vai pro app.
 // O jogador modelado aqui (limiar de farm, desistência, compra gulosa, escolha
-// de zona) é comportamento, não regra do jogo — nada disso deve ir pro app.
+// de zona, sessões) é comportamento, não regra do jogo — nada disso vai pro app.
 
 import {
-  CONFIG, UPGRADE_IDS, ZONE_IDS, advance, bossTimeout, buy, dps, enemyMaxHp, goldMultiplier, isBoss,
+  CONFIG, UPGRADE_IDS, ZONE_IDS, advance, applyOffline, bossTimeout, buy, dps, enemyMaxHp, goldMultiplier, isBoss,
   newGame, prestige, tick, upgradeCost,
 } from '../src/engine/engine.ts';
 import type { GameState, ZoneId } from '../src/engine/engine.ts';
@@ -73,10 +73,11 @@ function fight(state: GameState): { state: GameState; ticks: number; killed: boo
   }
 }
 
-// Joga a partir de `state` até vencer `lastStage` ou bater no muro. Avança
-// enquanto o kill é rápido; quando passa do limiar, farma na fase até voltar a
-// ficar rápido ou até desistir. O muro é o boss que não cabe no tempo da zona.
-function play(state: GameState, player: Player, lastStage: number): RunResult {
+// Joga a partir de `state` até vencer `lastStage`, bater no muro ou passar de
+// `maxSeconds`. Avança enquanto o kill é rápido; quando passa do limiar, farma na
+// fase até voltar a ficar rápido ou até desistir. O muro é o boss que não cabe
+// no tempo da zona.
+function play(state: GameState, player: Player, lastStage: number, maxSeconds = Infinity): RunResult {
   const log: StageLog[] = [];
   const picks = Object.fromEntries(ZONE_IDS.map(z => [z, 0])) as Record<ZoneId, number>;
   let ticks = 0;
@@ -89,6 +90,7 @@ function play(state: GameState, player: Player, lastStage: number): RunResult {
   });
 
   for (;;) {
+    if (ticks * CONFIG.tickSeconds >= maxSeconds) return result(null);
     const stage = state.stage;
     const currentDps = dps(state);
     const expectedSeconds = enemyMaxHp(stage, state.zone) / currentDps;
@@ -147,6 +149,32 @@ function smart(farmThreshold: number): ChooseZone {
   };
 }
 
+// Jogador casual: joga `activeMinutes`, fica `awayHours` fora, volta, compra o
+// que der e repete até vencer `target`. Mede quanto jogo ativo o offline poupa.
+function casual(activeMinutes: number, awayHours: number, target: number) {
+  const p = player(smart(8));
+  const sessionSeconds = activeMinutes * 60 + awayHours * 3600;
+  let state = newGame();
+  let activeSeconds = 0;
+
+  for (let sessions = 1; ; sessions++) {
+    const r = play(state, p, MAX_STAGE, activeMinutes * 60);
+    const reachedAt = timeAt(r, target);
+    if (reachedAt !== undefined || r.wall !== null) {
+      const lastSession = reachedAt ?? r.seconds;
+      return {
+        reached: reachedAt !== undefined,
+        wall: r.wall,
+        sessions,
+        activeSeconds: activeSeconds + lastSession,
+        days: ((sessions - 1) * sessionSeconds + lastSession) / 86_400,
+      };
+    }
+    activeSeconds += r.seconds;
+    state = buyGreedy(applyOffline(r.final, awayHours * 3600).state);
+  }
+}
+
 function duration(seconds: number | undefined): string {
   if (seconds === undefined) return '-';
   if (seconds < 60) return seconds.toFixed(1) + 's';
@@ -202,6 +230,19 @@ function report(): void {
   for (const threshold of [4, 8, 12]) {
     const r = threshold === 8 ? main : run(player(smart(threshold), threshold));
     console.log(`limiar ${String(threshold).padStart(2)}s | ${summary(r)}`);
+  }
+
+  const offlineHours = CONFIG.offlineMaxSeconds / 3600;
+  const offlinePct = CONFIG.offlineEfficiency * 100;
+  console.log(`\n=== Progresso offline (${offlineHours}h a ${offlinePct}%), jogador esperto até a fase 180 ===`);
+  console.log(`sempre ativo         | ${duration(timeAt(main, 180))} de jogo ativo`);
+  for (const minutes of [15, 30, 60]) {
+    const c = casual(minutes, offlineHours, 180);
+    const outcome = c.reached ? 'fase 180' : `muro ${c.wall}`;
+    console.log(
+      `${String(minutes).padStart(2)} min + ${offlineHours}h fora | ${outcome}: ` +
+      `${duration(c.activeSeconds)} de jogo ativo, ${c.sessions} sessões, ${c.days.toFixed(1)} dias`,
+    );
   }
 
   console.log('\n=== Cadeia de prestígio, jogador esperto (problema 1, ainda aberto) ===');
