@@ -19,7 +19,8 @@ interface GameStore {
   game: GameState;
   hydrated: boolean;  // save local já lido — o loop e a tela só começam depois disso
   kills: number;      // kills desde que o app abriu — troca a key do inimigo pra animar a entrada
-  bossFails: number;  // bosses que fugiram — dispara o aviso de volta de fase
+  bossFails: number;  // bosses que fugiram — dispara o aviso de volta de fase e o haptic
+  newRecords: number; // bosses vencidos pela primeira vez — dispara o haptic
   weaponSeen: number; // última arma que a tela já mostrou — uma melhor dispara o anúncio
   awayReport: AwayReport | null; // modal "You were away…" pendente
   hydrate: (saved: GameState | null) => void;
@@ -38,6 +39,7 @@ export const useGame = create<GameStore>()((set, get) => ({
   hydrated: false,
   kills: 0,
   bossFails: 0,
+  newRecords: 0,
   weaponSeen: 0,
   awayReport: null,
 
@@ -48,10 +50,12 @@ export const useGame = create<GameStore>()((set, get) => ({
   },
 
   step: ticks => {
-    let { game, kills, bossFails } = get();
+    let { game, kills, bossFails, newRecords } = get();
     for (let i = 0; i < ticks; i++) {
+      const recordBefore = game.record;
       const r = tick(game);
       game = r.state;
+      if (game.record > recordBefore) newRecords++;
       if (r.killed) {
         kills++;
         // Abaixo do recorde não há decisão: a subida automática avança sozinha.
@@ -59,7 +63,7 @@ export const useGame = create<GameStore>()((set, get) => ({
       }
       if (r.bossFailed) bossFails++;
     }
-    set({ game, kills, bossFails });
+    set({ game, kills, bossFails, newRecords });
   },
 
   advance: zone => {

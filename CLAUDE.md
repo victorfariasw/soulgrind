@@ -27,6 +27,9 @@ Não existe sprite, ilustração ou imagem no jogo. Toda a identidade visual é
 feita com ícones vetoriais (Tabler/Lucide), cor e tipografia. Isso é uma decisão
 deliberada, não uma limitação temporária — ver seção 9.
 
+O ícone do app e o splash seguem a mesma regra: o fantasma do Lucide no violeta
+das almas, sobre o fundo do jogo, gerados por `scripts/generate-icons.mjs`.
+
 ---
 
 ## 2. Stack
@@ -303,7 +306,9 @@ Só o que dá peso, nunca o que atrasa o jogador:
 - número de dano subindo e sumindo (`withSequence` translateY + opacity)
 - tremor de 3px no crítico
 - próximo inimigo entrando pela direita
-- haptic no boss (`expo-haptics`)
+- haptic no boss (`expo-haptics`): boss vencido pela primeira vez e boss que fugiu;
+  bosses abaixo do recorde não vibram (a subida automática passa por vários por
+  segundo). Em `src/game/useHaptics.ts`.
 
 **Não adicione animação para alongar o jogo.** Ver seção 9.
 
@@ -335,6 +340,10 @@ Na fase 190 a vida já passa de 10^23. Formate com sufixos (K, M, B, T, aa, ab�
 desde o primeiro commit. `Number` do JS quebra em 1.8×10^308, o que corresponde a
 ~fase 2600 — suficiente para a v1, mas se o jogo passar disso será preciso migrar
 para `{mantissa, expoente}`.
+
+Acima de mil, `formatNumber` mostra três algarismos significativos truncados
+(4.20K, 42.0K, 420K) — cabe nos cards e nunca mostra mais ouro do que o jogador
+tem. Abaixo de mil, inteiro truncado, ou com as casas pedidas (DPS 2.1).
 
 ### Strings
 
@@ -441,6 +450,8 @@ Cada marco é entregável e testável sozinho.
 8. **Armas cosméticas + inimigos procedurais**
    Feito em `src/content/` (armas e inimigos) e na tela de Combat.
 9. **Polimento** — haptics, formatação de números, ícone, splash
+   Feito: `src/game/useHaptics.ts`, três algarismos significativos, ícone e splash
+   gerados por `scripts/generate-icons.mjs` (plugin `expo-splash-screen` no app.json).
 10. **Build APK** — EAS Build, testar em dispositivo físico, publicar
 
 Os marcos 1 e 2 parecem os menos divertidos e são os que decidem se o jogo presta.
@@ -493,11 +504,14 @@ adjetivo + substantivo funciona sempre.
 - `src/game/persistence.ts` — lê o save ao abrir, grava a cada 10s e ao perder foco,
   e credita o tempo fora do app
 - `src/game/useAppActive.ts` — pausa o loop enquanto o app está em segundo plano
+- `src/game/useHaptics.ts` — vibração em boss novo e boss que fugiu
 - `src/components/AwayModal.tsx` — modal "You were away…"
 - `src/screens/PrestigeScreen.tsx` — almas da run, efeito e prestígio com confirmação
 - `src/content/weapons.ts` e `enemies.ts` — armas cosméticas e inimigos procedurais
   (puros, testados); os ícones do Lucide ficam em `src/components/contentIcons.ts`
 - `src/strings.ts` — todas as strings do jogo; `src/theme.ts` — cores
+- `scripts/generate-icons.mjs` — ícone, ícone adaptativo, splash e favicon
+  (`npm install --no-save @resvg/resvg-js` antes de rodar)
 - Comandos: `npm start` (Expo Go ou web), `npm run sim`, `npm test`, `npm run typecheck`
 
 Em desenvolvimento, `soulgrind.getState()` e `soulgrind.setState()` ficam

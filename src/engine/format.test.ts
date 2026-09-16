@@ -22,9 +22,14 @@ test('casas decimais só abaixo de mil, sempre truncadas', () => {
   assert.equal(formatNumber(1234.5, 2), '1.23K');
 });
 
-test('K, M, B, T e depois aa, ab…', () => {
+test('acima de mil, três algarismos significativos truncados', () => {
   assert.equal(formatNumber(4200), '4.20K');
-  assert.equal(formatNumber(999_999), '999.99K');
+  assert.equal(formatNumber(42_000), '42.0K');
+  assert.equal(formatNumber(420_000), '420K');
+  assert.equal(formatNumber(999_999), '999K');
+});
+
+test('K, M, B, T e depois aa, ab…', () => {
   assert.equal(formatNumber(2.5e6), '2.50M');
   assert.equal(formatNumber(1.5e12), '1.50T');
   assert.equal(formatNumber(1e15), '1.00aa');

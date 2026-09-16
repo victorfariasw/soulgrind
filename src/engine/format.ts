@@ -1,4 +1,4 @@
-// Números grandes com sufixo: 4.20K, 1.50T, 1.00aa, 1.00ab … zz.
+// Números grandes com sufixo: 4.20K, 42.0K, 420K, 1.50T, 1.00aa, 1.00ab … zz.
 // Number quebra em ~1.8e308 (sufixo "dt"), bem antes de acabarem os sufixos.
 
 const NAMED = ['K', 'M', 'B', 'T'];
@@ -17,7 +17,8 @@ function truncate(n: number, decimals: number): string {
   return (Math.floor(n * scale + 1e-9) / scale).toFixed(decimals);
 }
 
-// `decimals` só vale abaixo de mil (ex.: dps 2.16); acima disso são sempre 2 casas + sufixo.
+// `decimals` só vale abaixo de mil (ex.: dps 2.16). Acima disso são sempre três
+// algarismos significativos + sufixo, pra caber nos cards: 4.20K, 42.0K, 420K.
 export function formatNumber(n: number, decimals = 0): string {
   if (Number.isNaN(n)) return 'NaN';
   if (n < 0) return '-' + formatNumber(-n, decimals);
@@ -30,7 +31,8 @@ export function formatNumber(n: number, decimals = 0): string {
   if (mantissa >= 1000) { mantissa /= 1000; group++; }
   if (mantissa < 1) { mantissa *= 1000; group--; }
 
-  return truncate(mantissa, 2) + suffix(group);
+  const digits = mantissa >= 100 ? 0 : mantissa >= 10 ? 1 : 2;
+  return truncate(mantissa, digits) + suffix(group);
 }
 
 // Tempo fora do app: "45m", "3h12m", "8h".

@@ -10,6 +10,7 @@ import { TopBar } from './src/components/TopBar';
 import { usePersistence } from './src/game/persistence';
 import { useAppActive } from './src/game/useAppActive';
 import { useGameLoop } from './src/game/useGameLoop';
+import { useHaptics } from './src/game/useHaptics';
 import { CombatScreen } from './src/screens/CombatScreen';
 import { PrestigeScreen } from './src/screens/PrestigeScreen';
 import { UpgradesScreen } from './src/screens/UpgradesScreen';
@@ -20,6 +21,7 @@ export default function App() {
   const active = useAppActive();
   // Fora do app o loop para; o tempo fora vira progresso offline ao voltar.
   useGameLoop(ready && active);
+  useHaptics();
   const [tab, setTab] = useState<Tab>('combat');
 
   return (
