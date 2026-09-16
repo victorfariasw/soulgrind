@@ -2,6 +2,7 @@
 // GameState e contamos os eventos que a tela precisa animar.
 import { create } from 'zustand';
 
+import { weaponIndexFor } from '../content/weapons';
 import { advance, applyOffline, autoAdvance, buy, newGame, prestige, tick } from '../engine/engine';
 import type { GameState, UpgradeId, ZoneId } from '../engine/engine';
 
@@ -16,9 +17,10 @@ interface AwayReport {
 
 interface GameStore {
   game: GameState;
-  hydrated: boolean; // save local já lido — o loop e a tela só começam depois disso
-  kills: number;     // kills desde que o app abriu — troca a key do inimigo pra animar a entrada
-  bossFails: number; // bosses que fugiram — dispara o aviso de volta de fase
+  hydrated: boolean;  // save local já lido — o loop e a tela só começam depois disso
+  kills: number;      // kills desde que o app abriu — troca a key do inimigo pra animar a entrada
+  bossFails: number;  // bosses que fugiram — dispara o aviso de volta de fase
+  weaponSeen: number; // última arma que a tela já mostrou — uma melhor dispara o anúncio
   awayReport: AwayReport | null; // modal "You were away…" pendente
   hydrate: (saved: GameState | null) => void;
   step: (ticks: number) => void;
@@ -26,6 +28,7 @@ interface GameStore {
   advance: (zone?: ZoneId) => void;
   buy: (id: UpgradeId, count: number) => void;
   prestige: () => void;
+  markWeaponSeen: (index: number) => void;
   returnFromAway: (awaySeconds: number) => void;
   dismissAwayReport: () => void;
 }
@@ -35,9 +38,14 @@ export const useGame = create<GameStore>()((set, get) => ({
   hydrated: false,
   kills: 0,
   bossFails: 0,
+  weaponSeen: 0,
   awayReport: null,
 
-  hydrate: saved => set({ game: saved ?? newGame(), hydrated: true }),
+  // A arma do save conta como já vista: abrir o app não anuncia nada.
+  hydrate: saved => {
+    const game = saved ?? newGame();
+    set({ game, hydrated: true, weaponSeen: weaponIndexFor(game.levels.attack) });
+  },
 
   step: ticks => {
     let { game, kills, bossFails } = get();
@@ -68,6 +76,8 @@ export const useGame = create<GameStore>()((set, get) => ({
     const next = prestige(get().game);
     if (next) set({ game: next });
   },
+
+  markWeaponSeen: index => set({ weaponSeen: index }),
 
   // O ouro entra na hora; o modal é só o aviso.
   returnFromAway: awaySeconds => {

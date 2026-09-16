@@ -1,13 +1,13 @@
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInRight, useAnimatedStyle } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
-import { Skull } from 'lucide-react-native';
 
+import { enemyFor } from '../content/enemies';
 import { bossTimeout, dps, enemyMaxHp, isBoss } from '../engine/engine';
 import { formatNumber } from '../engine/format';
 import { useGame } from '../game/store';
-import { t } from '../strings';
 import { colors } from '../theme';
+import { ENEMY_ICON_COMPONENTS } from './contentIcons';
 import { HealthBar } from './HealthBar';
 
 // Abaixo disso o inimigo troca rápido demais pra animar a entrada. Nas fases
@@ -25,6 +25,8 @@ export function EnemyCard({ shake }: { shake: SharedValue<number> }) {
 
   const boss = isBoss(stage);
   const maxHp = enemyMaxHp(stage, zone);
+  const look = enemyFor(stage, zone);
+  const Icon = ENEMY_ICON_COMPONENTS[look.icon];
   const shakeStyle = useAnimatedStyle(() => ({ transform: [{ translateX: shake.value }] }));
 
   return (
@@ -35,8 +37,8 @@ export function EnemyCard({ shake }: { shake: SharedValue<number> }) {
         entering={fastKills ? undefined : FadeInRight.duration(ENTRY_MS)}
         style={styles.body}
       >
-        <Skull size={boss ? 60 : 48} color={boss ? colors.boss : colors.text} strokeWidth={1.5} />
-        <Text style={[styles.name, boss && styles.bossName]}>{boss ? t.boss : t.enemy}</Text>
+        <Icon size={boss ? 60 : 48} color={look.color} strokeWidth={1.5} />
+        <Text style={[styles.name, boss && styles.bossName]} numberOfLines={2}>{look.name}</Text>
         <HealthBar fraction={hp / maxHp} color={colors.hp} />
         <Text style={styles.hpText}>{formatNumber(hp)} / {formatNumber(maxHp)}</Text>
         {boss && (
@@ -57,8 +59,8 @@ const styles = StyleSheet.create({
   },
   bossCard: { borderColor: colors.boss },
   body: { alignItems: 'center', gap: 8 },
-  name: { color: colors.muted, fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 },
-  bossName: { color: colors.boss },
+  name: { color: colors.text, fontSize: 13, fontWeight: '600', textAlign: 'center', minHeight: 34 },
+  bossName: { color: colors.boss, fontWeight: '800' },
   hpText: { color: colors.muted, fontSize: 12, fontVariant: ['tabular-nums'] },
   timer: { width: '100%', gap: 4, alignItems: 'center' },
   timerText: { color: colors.boss, fontSize: 12, fontWeight: '700', fontVariant: ['tabular-nums'] },

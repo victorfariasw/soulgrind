@@ -6,7 +6,6 @@ export const t = {
   souls: 'Souls',
   prestige: 'Prestige',
   hero: 'Hero',
-  enemy: 'Enemy',
   boss: 'Boss',
   dps: 'DPS',
   goldPerSecond: 'Gold/s',
@@ -14,6 +13,28 @@ export const t = {
   zones: { ruins: 'Ruins', catacombs: 'Catacombs', ravine: 'Ravine' },
   climbing: 'Climbing',
   toStage: (stage: number) => `to Stage ${stage}`,
+
+  // Inimigos procedurais (seção 5.2): "Starving Wolf of the Ruins".
+  enemyAdjectives: ['Starving', 'Pale', 'Crawling', 'Nameless', 'Hollow', 'Rotting', 'Blind', 'Ashen'],
+  enemyBases: ['Wolf', 'Spider', 'Worm', 'Bat', 'Thrall', 'Shade', 'Hound', 'Wretch'],
+  zoneOf: { ruins: 'of the Ruins', catacombs: 'of the Pit', ravine: 'of the Rift' },
+  bossPrefixes: { elder: 'Elder', warden: 'Warden', theFirst: 'The First' },
+
+  // Armas cosméticas (seção 5.3), na ordem dos marcos.
+  weapons: {
+    rustedDagger: 'Rusted Dagger',
+    shortsword: 'Shortsword',
+    wardensAxe: "Warden's Axe",
+    heavyMaul: 'Heavy Maul',
+    gravePick: 'Grave Pick',
+    twinBlades: 'Twin Blades',
+    ashenCleaver: 'Ashen Cleaver',
+    hollowStaff: 'Hollow Staff',
+    thunderblade: 'Thunderblade',
+    paleMoonblade: 'Pale Moonblade',
+    blazingFury: 'Blazing Fury',
+    relicOfTheFirst: 'Relic of the First',
+  },
 
   combat: 'Combat',
   upgrades: 'Upgrades',

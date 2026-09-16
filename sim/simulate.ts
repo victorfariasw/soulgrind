@@ -13,6 +13,7 @@ import {
 } from '../src/engine/engine.ts';
 import type { GameState, ZoneId } from '../src/engine/engine.ts';
 import { formatNumber } from '../src/engine/format.ts';
+import { WEAPONS, weaponName } from '../src/content/weapons.ts';
 
 const MAX_STAGE = 2400;
 
@@ -36,6 +37,7 @@ interface StageLog {
   totalSeconds: number;
   farmKills: number;
   dps: number;
+  attack: number;
 }
 
 interface RunResult {
@@ -121,7 +123,7 @@ function play(state: GameState, player: Player, lastStage: number, options: Play
 
     log.push({
       stage, zone: state.zone, killSeconds: f.ticks * CONFIG.tickSeconds,
-      totalSeconds: ticks * CONFIG.tickSeconds, farmKills, dps: currentDps,
+      totalSeconds: ticks * CONFIG.tickSeconds, farmKills, dps: currentDps, attack: state.levels.attack,
     });
     // Farmou até desistir acima do recorde, com alma nova na mão: hora de prestigiar.
     const stuck = farmKills >= player.maxFarmKills && stage > (options.prestigeFrom ?? Infinity) && state.pendingSouls > 0;
@@ -191,6 +193,7 @@ interface ChainRow {
   run: number;
   record: number;
   souls: number;
+  attack: number; // nível de Attack no momento do prestígio
   runSeconds: number;
   activeSeconds: number;
 }
@@ -220,7 +223,10 @@ function prestigeChain(sessionMinutes?: number) {
     if (!reached1000 && state.record >= 1000) reached1000 = { active, calendar };
 
     if (r.stuck || r.wall !== null || state.stage >= MAX_STAGE) {
-      rows.push({ run: rows.length + 1, record: state.record, souls: state.souls + state.pendingSouls, runSeconds, activeSeconds: active });
+      rows.push({
+        run: rows.length + 1, record: state.record, souls: state.souls + state.pendingSouls,
+        attack: state.levels.attack, runSeconds, activeSeconds: active,
+      });
       const next = prestige(state);
       if (!next) break; // travou sem alma nova possível: fim do jogo
       state = next;
@@ -327,6 +333,23 @@ function report(): void {
   const sessions = prestigeChain(30);
   console.log(`fase 1000: ${duration(sessions.reached1000?.active)} de jogo, ${days(sessions.reached1000?.calendar)}`);
   console.log(`fim do jogo: fase ${sessions.final.record}, ${duration(sessions.active)} de jogo, ${days(sessions.calendar)}`);
+
+  // Marcos de arma (problema 2): o Attack zera a cada prestígio e chega cada vez
+  // mais alto conforme as runs vão mais fundo. "Na run 1" é o tempo até o marco;
+  // a primeira run que chega conta o Attack no momento do prestígio.
+  console.log('\n=== Marcos de arma: quando cada uma aparece ===');
+  console.log('arma                 | Attack | na run 1 | primeira run | horas totais (fim da run)');
+  const firstRunAttack = chain.rows[0]?.attack ?? 0;
+  for (const weapon of WEAPONS) {
+    const inRun1 = weapon.level > firstRunAttack
+      ? undefined
+      : (main.log.find(l => l.attack >= weapon.level)?.totalSeconds ?? 0);
+    const firstRun = chain.rows.find(row => row.attack >= weapon.level);
+    console.log(
+      `${weaponName(weapon).padEnd(20)} | ${String(weapon.level).padStart(6)} | ${duration(inRun1).padStart(8)} | ` +
+      `${String(firstRun?.run ?? '-').padStart(12)} | ${duration(firstRun?.activeSeconds)}`,
+    );
+  }
 }
 
 report();

@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
-import { ChevronsRight, Shield, Sword } from 'lucide-react-native';
+import { ChevronsRight, Shield } from 'lucide-react-native';
 
+import { WEAPON_ICON_COMPONENTS } from '../components/contentIcons';
 import { EnemyCard } from '../components/EnemyCard';
 import { FloatingNumbers } from '../components/FloatingNumbers';
 import type { Hit } from '../components/FloatingNumbers';
 import { ZoneSelect } from '../components/ZoneSelect';
+import { WEAPONS, weaponIndexFor, weaponName } from '../content/weapons';
 import {
   CONFIG, attacksPerSecond, canAdvance, critChance, critMultiplier, dps, goldPerSecond, hitDamage, isBoss, isClimbing,
 } from '../engine/engine';
@@ -22,6 +24,7 @@ const MIN_HIT_INTERVAL_MS = 200;
 const MAX_VISIBLE_HITS = 6;
 const CRIT_SHAKE_PX = 3;
 const NOTICE_MS = 2000;
+const WEAPON_NAME_MS = 2000;
 
 export function CombatScreen() {
   const shake = useSharedValue(0);
@@ -68,6 +71,7 @@ function useHitFeed(shake: SharedValue<number>): Hit[] {
         id: nextId.current++,
         value: hitDamage(game) * (crit ? critMultiplier(game) : 1),
         crit,
+        color: WEAPONS[weaponIndexFor(game.levels.attack)].color,
         offsetX: (Math.random() - 0.5) * 36,
       };
       setHits(prev => [...prev.slice(1 - MAX_VISIBLE_HITS), hit]);
@@ -86,14 +90,49 @@ function useHitFeed(shake: SharedValue<number>): Hit[] {
   return hits;
 }
 
+// Herói + arma atual. Arma nova: o ícone pulsa e o nome aparece por 2 segundos,
+// sem modal (seção 5.3). Arma pior (o prestígio zera o Attack) troca em silêncio.
 function HeroCard() {
+  const attack = useGame(s => s.game.levels.attack);
+  const weaponSeen = useGame(s => s.weaponSeen);
+  const markWeaponSeen = useGame(s => s.markWeaponSeen);
+  const [showName, setShowName] = useState(false);
+  const pulse = useSharedValue(1);
+
+  const index = weaponIndexFor(attack);
+  const weapon = WEAPONS[index];
+  const WeaponIcon = WEAPON_ICON_COMPONENTS[weapon.icon];
+
+  useEffect(() => {
+    if (index === weaponSeen) return;
+    markWeaponSeen(index);
+    if (index < weaponSeen) return;
+    pulse.value = withSequence(withTiming(1.4, { duration: 150 }), withTiming(1, { duration: 300 }));
+    setShowName(true);
+  }, [index, weaponSeen, markWeaponSeen, pulse]);
+
+  // Duas armas seguidas (compra ×10) reiniciam a contagem com o nome da mais nova.
+  useEffect(() => {
+    if (!showName) return;
+    const id = setTimeout(() => setShowName(false), WEAPON_NAME_MS);
+    return () => clearTimeout(id);
+  }, [showName, index]);
+
+  const pulseStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
+
   return (
     <View style={styles.heroCard}>
       <View style={styles.heroIcons}>
         <Shield size={48} color={colors.text} strokeWidth={1.5} />
-        <Sword size={26} color={colors.weapon} strokeWidth={2} />
+        <Animated.View style={pulseStyle}>
+          <WeaponIcon size={26} color={weapon.color} strokeWidth={2} />
+        </Animated.View>
       </View>
       <Text style={styles.name}>{t.hero}</Text>
+      {/* Espaço sempre reservado, pra o card não mudar de tamanho quando o nome aparece. */}
+      <Text style={[styles.weaponName, { color: weapon.color, opacity: showName ? 1 : 0 }]} numberOfLines={2}>
+        {weaponName(weapon)}
+      </Text>
     </View>
   );
 }
@@ -179,6 +218,7 @@ const styles = StyleSheet.create({
   },
   heroIcons: { flexDirection: 'row', alignItems: 'flex-end' },
   name: { color: colors.muted, fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 },
+  weaponName: { fontSize: 13, fontWeight: '700', textAlign: 'center', minHeight: 34 },
   hits: { width: 72, alignSelf: 'stretch' },
 
   notice: { color: colors.boss, textAlign: 'center', fontSize: 14, marginBottom: 8 },

@@ -1,4 +1,4 @@
-// Paleta única por enquanto. Paletas por zona chegam com os inimigos procedurais (marco 8).
+// Cores da interface. As armas têm cor própria em src/content/weapons.ts.
 export const colors = {
   bg: '#0E0D0B',
   surface: '#191714',
@@ -12,7 +12,6 @@ export const colors = {
   boss: '#D2433A',
   good: '#8DBF6A',
   crit: '#F5B83D',
-  weapon: '#6B6862', // Rusted Dagger — a arma muda com o nível de Attack no marco 8
 } as const;
 
 // Cor de destaque de cada zona: nome no topo e borda da carta de escolha.
@@ -20,4 +19,11 @@ export const zoneColors = {
   ruins: '#C98B3B',
   catacombs: '#9A8FB5',
   ravine: '#4F9BB0',
+} as const;
+
+// Paleta dos inimigos de cada zona; a primeira cor é a da zona.
+export const zonePalettes = {
+  ruins: [zoneColors.ruins, '#B8653A', '#D9B26A'],
+  catacombs: [zoneColors.catacombs, '#C9C1A8', '#7F8FA6'],
+  ravine: [zoneColors.ravine, '#6FA88A', '#8FB8C8'],
 } as const;

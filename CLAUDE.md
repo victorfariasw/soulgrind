@@ -214,28 +214,43 @@ vermelha e ícone maior.
 Com ~30 ícones e uma paleta por zona, o jogador passa centenas de fases sem
 repetir combinação.
 
+Implementado em `src/content/enemies.ts`, a partir só da fase e da zona (o inimigo
+que renasce na mesma fase é sempre o mesmo). Um ícone por criatura — o Lucide não
+tem aranha nem morcego, então Spider usa o inseto e Bat usa o pássaro. A combinação
+adjetivo + criatura anda 37 posições a cada fase: as 64 aparecem a cada 64 fases e
+duas fases seguidas nunca repetem a criatura. Prefixo de boss: Elder em todo boss,
+Warden a cada 50 fases, The First a cada 100. Cores em `zonePalettes` (`src/theme.ts`).
+
 ### 5.3 Armas (cosmético)
 
 O ícone da arma ao lado do herói muda quando o nível de Attack cruza um marco.
 **Zero efeito mecânico.** É recompensa visual pura, sem risco de quebrar a curva.
 
-```ts
-const ARMAS = [
-  { nivel: 1,  icone: 'sword',  cor: '#6B6862', nome: 'Rusted Dagger' },
-  { nivel: 10, icone: 'sword',  cor: '#3A6098', nome: 'Shortsword' },
-  { nivel: 25, icone: 'axe',    cor: '#854F0B', nome: "Warden's Axe" },
-  // ...
-];
-const armaAtual = (n: number) => [...ARMAS].reverse().find(a => n >= a.nivel);
-```
+| Arma | Attack | Ícone | Aparece (jogador esperto, `npm run sim`) |
+|---|---|---|---|
+| Rusted Dagger | 0 | sword | início |
+| Shortsword | 25 | sword | run 1, ~2 min |
+| Warden's Axe | 150 | axe | run 1, ~5 min |
+| Heavy Maul | 350 | hammer | run 1, ~9 min |
+| Grave Pick* | 700 | pickaxe | run 2, ~1h de jogo |
+| Twin Blades | 1200 | swords | run 4, ~1,6h |
+| Ashen Cleaver* | 2000 | slice | run 6, ~2,3h |
+| Hollow Staff* | 2800 | wand | run 10, ~3,7h |
+| Thunderblade | 3700 | zap | run 19, ~7h |
+| Pale Moonblade* | 4100 | moon-star | run 31, ~11h |
+| Blazing Fury | 4500 | flame | run 45, ~27h |
+| Relic of the First | 4750 | crown | run 55, ~55h |
 
-Nomes definidos: Rusted Dagger, Shortsword, Warden's Axe, Heavy Maul, Twin Blades,
-Thunderblade, Blazing Fury, Relic of the First.
+\* Nomes acrescentados no marco 8: o documento tinha 8 nomes e pedia ~12 marcos.
+Implementado em `src/content/weapons.ts`. As cores sugeridas antes (#6B6862, #3A6098,
+#854F0B) foram clareadas para ler no fundo escuro. Como o prestígio zera o Attack,
+as armas voltam a ser liberadas a cada run; só a troca para uma arma melhor anuncia
+o nome.
 
 Ao trocar de arma: ícone pulsa e o nome aparece por 2 segundos. Não use modal.
 A cor do número de dano acompanha a cor da arma.
 
-**O espaçamento dos marcos está em aberto** — ver seção 8.
+Marcos calibrados pela simulação — ver problema 2.
 
 ### 5.4 Progresso offline
 
@@ -349,10 +364,10 @@ min de jogo — hoje o freio é recomprar os upgrades a cada run, então **nada 
 compra automática de upgrades sem simular esse jogador**; (c) o jogo tem fim (fase
 ~1780 jogando sem parar, ~2120 em sessões), abaixo do limite de `Number`.
 
-**2. Os marcos de arma não estão calibrados.** O jogador chega ao nível 583 de
-Attack numa run. Marcos até 200 seriam todos desbloqueados antes da metade. O
-espaçamento precisa sair da simulação: ~12 a 15 marcos até ~650, com intervalos
-crescentes (1, 10, 25, 50, 90, 140, 200, 270, 350, 440, 540, 650).
+**2. Marcos de arma: resolvido.** Com o prestígio, o Attack zera a cada run e chega
+a ~450 no fim da run 1, ~2850 na run 10 e ~4800 no fim do jogo — marcos até 650
+sairiam todos na primeira hora. Os 12 marcos da seção 5.3 foram espaçados para que o
+tempo de jogo entre uma arma e a próxima mais ou menos dobre.
 
 **3. Alma extra das Catacombs: descartada.** Com o prestígio atual, 2 almas por boss
 em Catacombs levavam à fase 2400 em 1,9h, e 1,5 alma em 2,6h; mesmo sem o jogador
@@ -424,6 +439,7 @@ Cada marco é entregável e testável sozinho.
 7. **Prestígio** (resolver o problema 1 antes)
    Feito em `src/screens/PrestigeScreen.tsx`, com a subida automática da seção 3.
 8. **Armas cosméticas + inimigos procedurais**
+   Feito em `src/content/` (armas e inimigos) e na tela de Combat.
 9. **Polimento** — haptics, formatação de números, ícone, splash
 10. **Build APK** — EAS Build, testar em dispositivo físico, publicar
 
@@ -479,6 +495,8 @@ adjetivo + substantivo funciona sempre.
 - `src/game/useAppActive.ts` — pausa o loop enquanto o app está em segundo plano
 - `src/components/AwayModal.tsx` — modal "You were away…"
 - `src/screens/PrestigeScreen.tsx` — almas da run, efeito e prestígio com confirmação
+- `src/content/weapons.ts` e `enemies.ts` — armas cosméticas e inimigos procedurais
+  (puros, testados); os ícones do Lucide ficam em `src/components/contentIcons.ts`
 - `src/strings.ts` — todas as strings do jogo; `src/theme.ts` — cores
 - Comandos: `npm start` (Expo Go ou web), `npm run sim`, `npm test`, `npm run typecheck`
 

@@ -9,6 +9,7 @@ export interface Hit {
   id: number;
   value: number;
   crit: boolean;
+  color: string; // cor da arma atual (seção 5.3); crítico usa a cor própria
   offsetX: number;
 }
 
@@ -37,7 +38,7 @@ function FloatingNumber({ hit }: { hit: Hit }) {
   }));
 
   return (
-    <Animated.Text style={[styles.number, hit.crit && styles.crit, style]}>
+    <Animated.Text style={[styles.number, { color: hit.color }, hit.crit && styles.crit, style]}>
       {formatNumber(hit.value)}
     </Animated.Text>
   );
@@ -48,6 +49,6 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 0, right: 0, bottom: 0, left: 0,
     alignItems: 'center', justifyContent: 'center', pointerEvents: 'none',
   },
-  number: { position: 'absolute', color: colors.text, fontSize: 18, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  number: { position: 'absolute', fontSize: 18, fontWeight: '700', fontVariant: ['tabular-nums'] },
   crit: { color: colors.crit, fontSize: 24, fontWeight: '800' },
 });
