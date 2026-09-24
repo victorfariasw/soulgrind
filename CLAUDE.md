@@ -453,6 +453,11 @@ Cada marco é entregável e testável sozinho.
    Feito: `src/game/useHaptics.ts`, três algarismos significativos, ícone e splash
    gerados por `scripts/generate-icons.mjs` (plugin `expo-splash-screen` no app.json).
 10. **Build APK** — EAS Build, testar em dispositivo físico, publicar
+    Configurado: `eas.json` com os perfis `preview` e `production` (os dois em APK,
+    distribuição interna) e `android.package` = `com.victorfariasw.soulgrind`, que
+    não muda depois da primeira publicação. Falta o que depende de conta e aparelho:
+    `npx eas-cli login`, `npm run build:apk` e testar no celular — inclusive o que
+    nunca rodou fora da web (haptics, splash, ícone e a volta do segundo plano).
 
 Os marcos 1 e 2 parecem os menos divertidos e são os que decidem se o jogo presta.
 
@@ -512,7 +517,9 @@ adjetivo + substantivo funciona sempre.
 - `src/strings.ts` — todas as strings do jogo; `src/theme.ts` — cores
 - `scripts/generate-icons.mjs` — ícone, ícone adaptativo, splash e favicon
   (`npm install --no-save @resvg/resvg-js` antes de rodar)
-- Comandos: `npm start` (Expo Go ou web), `npm run sim`, `npm test`, `npm run typecheck`
+- `eas.json` — perfis de build; `README.md` — visão geral do projeto para quem chega
+- Comandos: `npm start` (Expo Go ou web), `npm run sim`, `npm test`, `npm run typecheck`,
+  `npm run build:apk`
 
 Em desenvolvimento, `soulgrind.getState()` e `soulgrind.setState()` ficam
 disponíveis no console do navegador (`npm run web`), para testar situações

@@ -9,12 +9,14 @@
     "web": "expo start --web",
     "sim": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON sim/simulate.ts",
     "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"src/**/*.test.ts\"",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "build:apk": "npx eas-cli build --platform android --profile preview",
+    "build:release": "npx eas-cli build --platform android --profile production"
   },
   "dependencies": {
     "@expo/metro-runtime": "~57.0.15",
     "@react-native-async-storage/async-storage": "2.2.0",
-    "expo": "~57.0.23",
+    "expo": "~57.0.25",
     "expo-haptics": "~57.0.3",
     "expo-splash-screen": "~57.0.9",
     "expo-status-bar": "~57.0.1",

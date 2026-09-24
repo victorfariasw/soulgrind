@@ -8,6 +8,7 @@
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0E0D0B",
     "android": {
+      "package": "com.victorfariasw.soulgrind",
       "adaptiveIcon": {
         "backgroundColor": "#0E0D0B",
         "foregroundImage": "./assets/android-icon-foreground.png",
